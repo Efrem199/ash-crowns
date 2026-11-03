@@ -111,17 +111,18 @@
     {
       "id": "hero-borin",
       "kind": "image",
-      "path": "assets/media/portraits/hero-borin.webp",
-      "sourceUrl": "https://opengameart.org/content/fantasy-portrait-pack-by-ravenmore",
-      "author": "Ravenmore",
-      "license": "CC-BY-3.0",
-      "licensePath": "licenses/CC-BY-3.0.txt",
+      "path": "assets/media/portraits/hero-borin-flare.webp",
+      "sourceUrl": "https://opengameart.org/content/flare-portrait-pack-number-one",
+      "author": "Justin Nichol / FLARE",
+      "license": "CC-BY-SA-3.0",
+      "licensePath": "licenses/CC-BY-SA-3.0.txt",
       "authorUrl": "https://ravenmore.itch.io/",
-      "sha256": "e3214de0643eb85dec09c4fc129a75be346739c8be3e9d7f48f4025aaf380cd4",
-      "originalPath": "asset-sources/portraits/dwarf_m_256.png",
+      "sha256": "9676a47930cc3a06aff64b7f187fdd4fe6d5f18a373f9d042c72a82e7150bba4",
+      "originalPath": "asset-sources/portraits/male05.png",
       "width": 320,
       "height": 320,
-      "processing": "Resize contain 320×320; WebP quality85; original preserved"
+      "processing": "Resize contain 320×320; WebP quality85; original preserved",
+      "creditsUrl": "https://github.com/flareteam/flare-game/wiki/Credits"
     },
     {
       "id": "region-0",

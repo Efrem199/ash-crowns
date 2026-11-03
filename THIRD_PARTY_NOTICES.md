@@ -7,15 +7,15 @@ This repository contains third-party media under their own licenses. **The MIT l
 - Source: [FLARE Portrait Pack](https://opengameart.org/content/flare-portrait-pack-number-one), [FLARE game art](https://github.com/flareteam/flare-game/tree/master/mods/fantasycore/images/portraits).
 - Author: **Justin Nichol**. FLARE per-file credit: [Credits](https://github.com/flareteam/flare-game/wiki/Credits), preserved in `licenses/FLARE-CREDITS.md`.
 - License: **Creative Commons Attribution-ShareAlike 3.0 Unported**, `licenses/CC-BY-SA-3.0.txt`.
-- Selected originals: `female03.png` (Avelin), `male03.png` (Rowan), `female11.png` (Mira), `male02.png` (Khar), `female04.png` (Seren), `female09.png` (Dara), `male20.png` (Orian).
+- Selected originals: `female03.png` (Avelin), `male03.png` (Rowan), `female11.png` (Mira), `male02.png` (Khar), `female04.png` (Seren), `female09.png` (Dara), `male20.png` (Orian), `male05.png` (Borin).
 - Processing: proportion-preserving resize / transparent padding and WebP encoding. These processed portrait files remain under **CC-BY-SA-3.0**. The displayed Ash Crowns character names and biographies are original game content, not the original artists' character identities.
 
-## Dwarf portrait and painted item icons — Ravenmore
+## Painted item icons — Ravenmore
 
-- Sources: [Fantasy Portrait Pack](https://opengameart.org/content/fantasy-portrait-pack-by-ravenmore), [Fantasy Icon Pack](https://opengameart.org/content/fantasy-icon-pack-by-ravenmore-0).
+- Sources: [Fantasy Icon Pack](https://opengameart.org/content/fantasy-icon-pack-by-ravenmore-0).
 - Author: **Ravenmore** — [ravenmore.itch.io](https://ravenmore.itch.io/), [dycha.net](http://dycha.net).
 - License: **Creative Commons Attribution 3.0 Unported**, `licenses/CC-BY-3.0.txt`.
-- `dwarf_m_256.png` is used for Borin. Selected transparent item images illustrate research, relics, units and building specializations.
+- Selected transparent item images illustrate research, relics, units and building specializations.
 - Processing: resize and WebP conversion. Some item images are placed as separate specialization emblems on building illustrations; their attribution and license remain recorded in the manifest's `derivedFrom` entries.
 
 ## Medieval building illustrations — feudalwars
