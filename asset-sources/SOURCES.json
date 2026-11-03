@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "sourceUrl": "https://opengameart.org/content/flare-portrait-pack-number-one",
+      "author": "Justin Nichol / FLARE",
+      "license": "CC-BY-SA-3.0",
+      "licensePath": "licenses/CC-BY-SA-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-portrait-pack-by-ravenmore",
+      "author": "Ravenmore",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/oil-painting-landscapes",
+      "author": "JAP",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-icon-pack-by-ravenmore-0",
+      "author": "Ravenmore",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/gold-mine.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/mine-wagon.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/wheat.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/observatory.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/cavalry.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/trebuchet.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/archer.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/delapouite/wizard-face.html",
+      "author": "Delapouite",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/crown.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/compass.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/sundial.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/quill.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://game-icons.net/1x1/lorc/anvil.html",
+      "author": "Lorc",
+      "license": "CC-BY-3.0",
+      "licensePath": "licenses/CC-BY-3.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-stone-guard-tower-isometric-25d",
+      "author": "feudalwars; Delapouite",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/western-european-medieval-houses-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-blacksmith-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-barracks-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-archery-range-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-stable-isometric-25d",
+      "author": "feudalwars; Delapouite",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/western-european-castle-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/medieval-wooden-guard-tower-isometric-25d",
+      "author": "feudalwars; Ravenmore",
+      "license": "CC0-1.0 AND CC-BY-3.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://kenney.nl/assets/fantasy-ui-borders",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/Kenney-Fantasy-UI.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-song-pack-volume-1",
+      "author": "troubadour",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-grasslands",
+      "author": "Doge",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-battlegrounds",
+      "author": "Doge",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://opengameart.org/content/fantasy-orchestral-theme",
+      "author": "Joth",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/CC0-1.0.txt"
+    },
+    {
+      "sourceUrl": "https://kenney.nl/assets/rpg-audio",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/Kenney-RPG-Audio.txt"
+    },
+    {
+      "sourceUrl": "https://kenney.nl/assets/interface-sounds",
+      "author": "Kenney",
+      "license": "CC0-1.0",
+      "licensePath": "licenses/Kenney-Interface-Sounds.txt"
+    }
+  ]
+}

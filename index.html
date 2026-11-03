@@ -1,1 +1,103 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111c1b"><meta name="description" content="Пепельные короны: стратегическая idle-кампания о возвращении солнца. Пять рас, четыре главы и вечное наследие."><title>Пепельные короны · Возвращение солнца</title><link rel="icon" href="assets/crown.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css?v=3"></head><body><header><a href="#" class="brand"><span>♜</span><div>ПЕПЕЛЬНЫЕ КОРОНЫ<small>ВОЗВРАЩЕНИЕ СОЛНЦА · 0.3</small></div></a><div class="header-actions"><span id="save-status">Автосохранение</span><button data-action="help">Справочник</button><button data-action="settings" aria-label="Открыть настройки">⚙</button></div></header><div class="resource-bar" id="resources"></div><div class="app-shell"><aside class="sidebar"><div class="dynasty"><span id="race-icon">♜</span><div><strong id="race-name">Новая династия</strong><small id="era"></small></div></div><button id="gather" class="ember" data-action="gather"><span class="rune">✦</span><strong>Разжечь горнило</strong><small id="click-value"></small><span id="combo"></span></button><div class="side-label">КОРОЛЕВСКИЙ СОВЕТ</div><nav id="navigation" aria-label="Разделы игры"></nav><div class="side-bottom"><div id="next-goal"></div><p id="playtime"></p></div></aside><main><section class="page-title"><div><div class="eyebrow" id="page-eyebrow"></div><h1 id="page-title"></h1><p id="page-description"></p></div><div id="page-badge" class="badge"></div></section><div id="event-banner"></div><section id="view"></section><footer><span>Солнце ещё вернётся.</span><span>Пять народов. Четыре главы. Твоя династия.</span></footer></main><aside class="rightbar"><section class="panel"><div class="eyebrow">СЛЕДУЮЩИЙ РУБЕЖ</div><div id="frontier"></div></section><section class="panel"><div class="eyebrow">КОРОЛЕВСКИЙ УКАЗ</div><div id="policies"></div><p id="policy-description" class="muted"></p></section><section class="panel"><div class="eyebrow">ТЕКУЩИЕ ЭКСПЕДИЦИИ</div><div id="active-expeditions"></div></section><section class="panel chronicle"><div class="eyebrow">ЛЕТОПИСЬ</div><div id="log" aria-live="polite"></div></section></aside></div><dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog><div id="toast" role="status"></div><script type="module" src="app.js?v=3"></script></body></html>
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#111c1b" />
+    <meta
+      name="description"
+      content="Пепельные короны: стратегическая idle-кампания о возвращении солнца. Пять рас, четыре главы и вечное наследие."
+    />
+    <title>Пепельные короны · Возвращение солнца</title>
+    <link rel="icon" href="assets/crown.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css?v=4" />
+    <link rel="stylesheet" href="v4.css?v=4" />
+  </head>
+  <body>
+    <header>
+      <a href="#" class="brand"
+        ><span>♜</span>
+        <div>ПЕПЕЛЬНЫЕ КОРОНЫ<small>ВОЗВРАЩЕНИЕ СОЛНЦА · 0.4</small></div></a
+      >
+      <div class="header-actions">
+        <span id="save-status">Автосохранение</span
+        ><button
+          id="music-button"
+          data-action="music-toggle"
+          aria-pressed="false"
+        >
+          ▷ Музыка
+        </button>
+        <button data-action="help">Справочник</button
+        ><button data-action="settings" aria-label="Открыть настройки">
+          ⚙
+        </button>
+      </div>
+    </header>
+    <div class="resource-bar" id="resources"></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="dynasty">
+          <span id="race-icon">♜</span>
+          <div>
+            <strong id="race-name">Новая династия</strong
+            ><small id="era"></small>
+          </div>
+        </div>
+        <button id="gather" class="ember" data-action="gather">
+          <span class="rune">✦</span><strong>Разжечь горнило</strong
+          ><small id="click-value"></small><span id="combo"></span>
+        </button>
+        <div class="side-label">КОРОЛЕВСКИЙ СОВЕТ</div>
+        <nav id="navigation" aria-label="Разделы игры"></nav>
+        <div class="side-bottom">
+          <div id="next-goal"></div>
+          <p id="playtime"></p>
+        </div>
+      </aside>
+      <main>
+        <section class="page-title">
+          <div>
+            <div class="eyebrow" id="page-eyebrow"></div>
+            <h1 id="page-title"></h1>
+            <p id="page-description"></p>
+          </div>
+          <div id="page-badge" class="badge"></div>
+        </section>
+        <div id="event-banner"></div>
+        <section id="view"></section>
+        <footer>
+          <span>Солнце ещё вернётся.</span
+          ><span>Пять народов. Четыре главы. Твоя династия.</span>
+        </footer>
+      </main>
+      <aside class="rightbar">
+        <section class="panel">
+          <div class="eyebrow">СЛЕДУЮЩИЙ РУБЕЖ</div>
+          <div id="frontier"></div>
+        </section>
+        <section class="panel">
+          <div class="eyebrow">КОРОЛЕВСКИЙ УКАЗ</div>
+          <div id="policies"></div>
+          <p id="policy-description" class="muted"></p>
+        </section>
+        <section class="panel">
+          <div class="eyebrow">ТЕКУЩИЕ ЭКСПЕДИЦИИ</div>
+          <div id="active-expeditions"></div>
+        </section>
+        <section class="panel chronicle">
+          <div class="eyebrow">ЛЕТОПИСЬ</div>
+          <div id="log" aria-live="polite"></div>
+        </section>
+      </aside>
+    </div>
+    <dialog id="modal" aria-labelledby="modal-title">
+      <div id="modal-content"></div>
+    </dialog>
+    <dialog id="battle-modal" aria-labelledby="battle-title">
+      <div id="battle-content"></div>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <script type="module" src="app.js?v=4"></script>
+  </body>
+</html>

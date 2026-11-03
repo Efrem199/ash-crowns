@@ -1,69 +1,1291 @@
-import * as G from './engine.js?v=3';
-const $=id=>document.getElementById(id),nf=new Intl.NumberFormat('ru',{maximumFractionDigits:0}),cf=new Intl.NumberFormat('ru',{maximumFractionDigits:1,notation:'compact'}),df=new Intl.NumberFormat('ru',{maximumFractionDigits:1});
-const sf=new Intl.NumberFormat('ru',{maximumFractionDigits:3});
-const fmt=n=>n>=10000?cf.format(n):Math.abs(n)>=100?nf.format(n):Math.abs(n)>0&&Math.abs(n)<1?sf.format(n):df.format(n),esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const views=[['heroes','⚜','Герои','Те, кто вернут солнце','Собери команду из двух спутников. Их опыт, способности и таланты переживут смену династии.'],['settlement','♜','Поселение','Город на краю рассвета','Добывай ресурсы, возводи кварталы и строй экономику, которая выдержит долгую войну.'],['campaign','⚑','Кампания','Дорога к последней короне','Четыре главы. Двадцать четыре земли. Каждый рубеж меняет возможности твоей державы.'],['army','♞','Армия','Знамёна твоей династии','Сочетай войска, выбирай строй и следи за провизией. Численность — только начало стратегии.'],['research','⌘','Исследования','Знание переживёт тьму','Технологии открываются по мере завоеваний. Выбирай между силой сейчас и экономикой на будущее.'],['expeditions','⌖','Экспедиции','За пределами карты','Два отряда могут путешествовать одновременно. Они принесут ресурсы и древние реликвии.'],['legacy','◈','Наследие','Вечность помнит тебя','Улучшения, достижения и найденные реликвии сохраняются между династиями.'],['objectives','✧','Задания','Маленькие шаги к легенде','Получай награды за развитие королевства и собирай вечные осколки достижений.'],['journal','☷','Летопись','Мир до последнего рассвета','Истории земель, народов и тех, кто однажды вернёт солнце.']];
-let heroDetail='avelin';
-let s=G.fresh(),view='settlement',filter='Все',quantity=1,chapter=0,selectedLand=null,sound=false,motion=true,audio,toastTimer,settings,saveError=false,hiddenAt=null;
-try{settings=JSON.parse(localStorage.getItem('ash-crowns-settings')||'{}');sound=!!settings.sound;motion=settings.motion!==false;const raw=localStorage.getItem(G.KEY),old=localStorage.getItem(G.OLDKEY);if(raw){const p=G.hydrateHeroes(JSON.parse(raw));if(G.valid(p))s=p;else{saveError=true;localStorage.setItem('ash-crowns-recovery',raw);}}else if(old){const p=G.migrate(JSON.parse(old));if(p)s=p;}if(s.race){const dt=Math.max(0,(Date.now()-s.last)/1000);G.tick(s,dt);if(dt>60)G.log(s,`Возвращение: ресурсы за ${Math.floor(Math.min(7200,dt)/60)} мин. Максимум — два часа.`);}}catch{saveError=true;}
-chapter=Math.min(3,Math.floor(s.lands/6));document.body.classList.toggle('reduce-motion',!motion);
-const cache=new Map();function html(id,markup){if(cache.get(id)!==markup){$(id).innerHTML=markup;cache.set(id,markup);}}
-function text(id,t){const e=$(id);if(e&&e.textContent!==String(t))e.textContent=t;}
-function save(){s.last=Date.now();try{localStorage.setItem(G.KEY,JSON.stringify(s));saveError=false;text('save-status','● Прогресс сохранён');}catch{saveError=true;text('save-status','Скачайте сохранение в настройках');}}
-function toast(t){text('toast',t);$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3200);}
-function beep(crit=false){if(!sound)return;try{audio??=new AudioContext();audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.type='sine';o.frequency.setValueAtTime(crit?760:440,audio.currentTime);o.frequency.exponentialRampToValueAtTime(crit?380:220,audio.currentTime+.13);g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.16);o.start();o.stop(audio.currentTime+.16);}catch{}}
-function costs(c){return `<div class="cost">${Object.entries(c).map(([k,v])=>`<span data-resource="${k}" data-amount="${v}">${G.RES[k]?.[0]||'⚑'} ${fmt(v)}</span>`).join('')}</div>`;}
-function payAttrs(c,locked=false){return `data-pay='${JSON.stringify(c)}' ${locked?'data-locked="true" disabled':''}`;}
-const button=(action,id,label,c={},locked=false,cls='')=>`<button data-action="${action}" data-id="${id}" class="${cls}" ${payAttrs(c,locked)}>${label}</button>`;
-function modal(markup){$('modal-content').innerHTML=markup;if(!$('modal').open)$('modal').showModal();}
-function chooseRace(){modal(`<div class="eyebrow">ДИНАСТИЯ ${s.meta.era} · НОВЫЙ РАССВЕТ</div><h2 id="modal-title">Кто поднимется из пепла?</h2><p>Каждый народ меняет твою стратегию. После возрождения можно выбрать другой. Наследие и реликвии останутся с тобой.</p><div class="race-choices">${Object.entries(G.RACES).map(([id,r])=>`<button class="race-choice" data-action="race" data-id="${id}"><span style="color:${r.color}">${r.icon}</span><strong>${r.name}</strong><small>${r.desc}</small></button>`).join('')}</div>`);}
-function openHelp(){modal(`<div class="eyebrow">КОРОЛЕВСКИЙ СПРАВОЧНИК</div><h2 id="modal-title">От искры до империи</h2><div class="guide-section"><h3>Начало пути</h3><p>Разжигай горнило, затем построй шахту, лесопилку и поля. Казармы бесплатно вербуют ополчение. Нажатия также дают дерево; серия нажатий повышает добычу до +50%. Базовый шанс тройного критического клика — 5%.</p></div><div class="guide-section"><h3>Война и снабжение</h3><p>Армия ест провизию. Если запас закончился, сила падает на 30%, но бойцы не исчезают. Севооборот, поля и указ «Урожай» помогают снабжению. Войска автоматически накапливаются в военных зданиях, доступны и покупки отрядов.</p><p>Обход побеждает Натиск; Оборона побеждает Обход; Натиск побеждает Оборону. Контртактика: +35% силы. Неудачная тактика: −20%. При силе не ниже защиты победа гарантирована. Базовые потери — 20% при победе, 12% при поражении.</p><p>Ударный строй: +8% общей силы, ещё +35% всадникам, но потери выше на 25%. Стрелковый строй: +30% стрелкам, общая сила −5%, потери ниже на 30%. Требушеты сильнее против крепостей, маги — против духов.</p></div><div class="guide-section"><h3>Экспедиции и события</h3><p>Одновременно доступны две экспедиции. Награды поступают автоматически. Гробница династий гарантирует неизвестную реликвию, пока не собраны все двенадцать. Событие возникает примерно раз в 100 секунд активного игрового времени, ожидает выбора и не отнимает ресурсы самостоятельно.</p></div><div class="guide-section"><h3>Наследие</h3><p>После трёх земель доступно возрождение. Награда: число земель +4 за каждую завершённую главу, затем бонусы технологий и реликвий. Здания, войска, технологии, задания и ресурсы сбрасываются. Осколки, 8 веток улучшений, достижения и коллекция реликвий остаются. Одновременно можно носить три реликвии. Следующая династия повышает защиту врагов на 18% от базовой.</p></div><div class="guide-section"><h3>Герои династии</h3><p>В зале героев можно нанять восемь спутников. Порог найма зависит от лучшего результата всех династий. Два активных героя дают пассивные бонусы и получают опыт за победы, задания и экспедиции. Уровни, найм и таланты сохраняются при возрождении. На уровнях 3, 7, 12 и 18 выбирай один из двух талантов. Таланты можно сбросить за золото. Способности требуют ресурсов и имеют перезарядку.</p></div><div class="guide-section"><h3>Сохранение</h3><p>Прогресс записывается каждые 10 секунд и при уходе со страницы. До двух часов производства вне игры. Резервную копию можно скачать и восстановить в настройках. Старое сохранение v0.1 переносится автоматически. Данные остаются в этом браузере.</p></div><button data-action="close" class="gold wide">Вернуться к королевству</button>`);}
-function openSettings(){modal(`<h2 id="modal-title">У походного костра</h2><div class="settings-row"><label>Звуки горнила</label><button data-action="sound">${sound?'Включены':'Выключены'}</button></div><div class="settings-row"><label>Анимации</label><button data-action="motion">${motion?'Включены':'Выключены'}</button></div><div class="settings-row"><div><strong>Резервная копия</strong><p>Скачай прогресс перед переносом в другой браузер.</p></div><button data-action="export">Скачать JSON</button></div><div class="settings-row"><label for="import-save">Восстановить сохранение</label><input id="import-save" type="file" accept="application/json"></div><p>Версия 0.3 · Все ресурсы и графика загружаются вместе с игрой. Внешних запросов и отслеживания нет.</p><div class="dialog-actions"><button data-action="close" class="gold">Готово</button></div>`);}
-function renderResources(){html('resources',Object.entries(G.RES).map(([k,[i,n]])=>`<div class="resource"><span>${i}</span><div><small>${n}</small><strong id="res-${k}">0</strong><span class="rate" id="rate-${k}"></span></div></div>`).join('')+'<div class="resource"><span>◈</span><div><small>Наследие</small><strong id="res-shards">0</strong><small>Вечные осколки</small></div></div>');}
-function renderChrome(){const r=G.RACES[s.race];text('race-icon',r?.icon||'♜');text('race-name',r?.name||'Новая династия');text('era',`Династия ${s.meta.era} · ${s.lands}/24 земель`);html('navigation',views.map(([id,i,n])=>`<button data-action="view" data-id="${id}" class="${view===id?'active':''}" ${view===id?'aria-current="page"':''}><span>${i} ${n}</span>${id==='objectives'?`<em>${G.QUESTS.filter(q=>!s.quests.includes(q.id)&&G.stat(s,q.stat)>=q.target).length}</em>`:id==='legacy'?`<em>${s.meta.shards}</em>`:''}</button>`).join(''));
-const v=views.find(v=>v[0]===view);text('page-eyebrow',`КОРОЛЕВСКИЙ АРХИВ / ${v[2].toUpperCase()}`);text('page-title',v[3]);text('page-description',v[4]);text('page-badge',`${s.lands}/24 земель · ${s.meta.era} династия`);
-html('policies',['Торговля','Мобилизация','Лесозаготовка','Урожай'].map((n,i)=>`<button data-action="policy" data-id="${i}" class="${s.policy===i?'active':''}">${n}</button>`).join(''));text('policy-description',['Золото +30%. Развивай доходы.','Вербовка +50%, золото −20%.','Производство дерева +40%.','Производство провизии +50%.'][s.policy]);
-const l=G.LANDS[s.lands];html('frontier',l?`<h3>${l.name}</h3><p class="muted">${l.boss?'♛ Хранитель главы':G.BIOMES[l.chapter].name} · ${G.TACTICS[l.stance]}</p><div class="row"><small class="muted">Сила армии</small><strong id="side-power" class="gold-text"></strong></div><div class="progress"><span id="side-progress"></span></div><p id="side-def" class="muted"></p><button class="wide" data-action="view" data-id="campaign">Открыть карту →</button>`:'<h3>Солнце возвращается.</h3><p class="muted">Кампания завершена. Начни новую династию с вечным наследием.</p><button data-action="view" data-id="legacy" class="gold wide">К наследию</button>');
-html('active-expeditions',s.expeditions.length?s.expeditions.map(x=>`<div class="timer-row">${G.EXPEDITIONS.find(e=>e.id===x.id).name}<small data-timer="${x.id}"></small></div>`).join(''):'<p class="muted">Отряды ждут приказа.</p><button class="wide" data-action="view" data-id="expeditions">Снарядить отряд</button>');
-html('log',s.logs.map(t=>`<p>${esc(t)}</p>`).join(''));html('event-banner',s.event===null?'':`<div class="event-banner"><div><div class="eyebrow">ВЕСТИ ИЗ КОРОЛЕВСТВА</div><strong>${G.EVENTS[s.event].title}</strong><p>Совет ждёт твоего решения.</p></div><button data-action="event" class="gold">Принять посланника</button></div>`);
-const q=G.QUESTS.find(q=>!s.quests.includes(q.id));html('next-goal',q?`БЛИЖАЙШАЯ ЦЕЛЬ<strong>${q.name}</strong>${q.desc}`:'Все задания выполнены. Впереди — новая династия.');}
-function hero(ch,title,desc){return `<div class="hero"><img src="assets/chapter-${ch}.svg" alt="${G.BIOMES[ch].name}" width="1000" height="400"><div class="hero-copy"><div class="eyebrow">${G.BIOMES[ch].tag}</div><h2>${title}</h2><p>${desc}</p></div></div>`;}
-function buildingCards(){return G.BUILDINGS.map((b,i)=>({b,i})).filter(({b})=>filter==='Все'||b.group===filter).map(({b,i})=>{const locked=s.lands<b.unlock,c=G.cost(s,i,quantity);return `<article class="card ${locked?'locked':''}"><div class="row"><span class="card-icon">${b.icon}</span><span class="level">УРОВЕНЬ ${s.buildings[i]}</span></div><h3>${b.name}</h3><p>${b.desc}</p>${Object.keys(b.prod).length?`<small class="good">${Object.entries(b.prod).map(([k,v])=>`${G.RES[k]?.[0]||'⚑'} +${fmt(v)} / сек за уровень`).join(' · ')}</small>`:''}${locked?`<p class="tag">Откроется после ${b.unlock} земель</p>`:costs(c)}${button('build',i,locked?'Пока недоступно':`Построить ×${quantity}`,c,locked)}</article>`;}).join('');}
-function settlement(){return hero(Math.min(3,Math.floor(s.lands/6)),'Королевство начинается с искры','Ремесленные кварталы кормят поход. Военные кварталы превращают богатство в силу.')+`<div class="toolbar"><div class="tabs">${['Все','Добыча','Ремесло','Армия'].map(f=>`<button data-action="filter" data-id="${f}" class="${filter===f?'active':''}">${f}</button>`).join('')}</div><div class="toggle" aria-label="Количество построек">${[1,5,10].map(n=>`<button data-action="quantity" data-id="${n}" class="${quantity===n?'active':''}">×${n}</button>`).join('')}</div></div><div class="grid">${buildingCards()}</div>`;}
-function campaign(){const current=G.LANDS[s.lands],idx=selectedLand??s.lands,l=G.LANDS[Math.min(23,idx)],done=l.id<s.lands,next=l.id===s.lands;return `<div class="chapter-tabs">${G.BIOMES.map((b,i)=>`<button data-action="chapter" data-id="${i}" class="${chapter===i?'active':''}">${i+1}. ${b.name}</button>`).join('')}</div><div class="map"><img src="assets/chapter-${chapter}.svg" alt="Карта региона ${G.BIOMES[chapter].name}" width="1000" height="400">${G.LANDS.filter(l=>l.chapter===chapter).map((l,i)=>`<button class="map-node ${l.id<s.lands?'done':l.id===s.lands?'active':''}" style="left:${[10,25,40,56,72,89][i]}%;top:${[65,39,60,31,55,24][i]}%" data-action="land" data-id="${l.id}" title="${l.name}" aria-label="${l.name}">${l.id<s.lands?'✓':l.boss?'♛':l.id+1}</button>`).join('')}<span class="map-caption">${G.BIOMES[chapter].tag}</span></div><section class="panel battle"><div><div class="eyebrow">${done?'ЗЕМЛЯ ПОД ТВОЕЙ КОРОНОЙ':next?'СЛЕДУЮЩАЯ ЦЕЛЬ':'ЗА ГРАНЬЮ ФРОНТИРА'} · ${l.boss?'БОСС':'РУБЕЖ '+(l.id+1)}</div><h2>${l.name}</h2><p class="lore">${l.lore}</p><p class="muted">Постоянный бонус в этом забеге: ${l.bonus}.</p><p class="muted">Добыча: ${Object.entries(l.loot).map(([k,v])=>`${fmt(v)} ${G.RES[k][0]}`).join(' · ')}${l.boss?' · Древняя реликвия':''}</p><div class="note">${l.type==='fort'?'Крепость: осадные машины сильнее на 60%.':l.type==='spirit'?'Духи: маги сильнее на 50%.':l.boss?'Хранитель главы. Победа открывает новые земли и реликвию.':'Выбери контртактику и накопи достаточно сил.'}</div></div><div><div class="row"><small class="muted">Твоя сила</small><small class="muted">Защита врага</small></div><div class="row"><strong class="metric gold-text" id="battle-power"></strong><span class="metric">${fmt(G.defense(s,l))}</span></div><div class="progress"><span id="battle-progress"></span></div><p id="battle-verdict" class="muted"></p><div class="controls"><label>Тактика врага: ${G.TACTICS[l.stance]}<select id="tactic" aria-label="Тактика боя">${G.TACTICS.map((t,i)=>`<option value="${i}" ${s.tactic===i?'selected':''}>${t}</option>`).join('')}</select></label><label>Боевой строй<select id="formation" aria-label="Боевой строй">${['Сбалансированный','Ударный','Стрелковый'].map((t,i)=>`<option value="${i}" ${s.formation===i?'selected':''}>${t}</option>`).join('')}</select></label></div>${button('attack',l.id,done?'Уже завоёвано':next?'В поход →':'Сначала предыдущие земли',{},!next,'gold')}<p id="battle-loss" class="muted"></p></div></section><div class="section-heading"><h2>${current?'Земли главы':'Путь завершён'}</h2><span class="tag">${s.lands} / 24</span></div><div class="territories">${G.LANDS.filter(l=>l.chapter===chapter).map(l=>`<button class="territory ${l.id===idx?'active':''}" data-action="land" data-id="${l.id}"><span>${l.id<s.lands?'✓':l.boss?'♛':'⚑'}</span><div><strong>${l.name}</strong><small>${l.id<s.lands?'Захвачено · ':''}${l.bonus}</small></div></button>`).join('')}</div>`;}
-function army(){return `<div class="stat-grid"><div class="stat-box"><strong id="army-total"></strong><small>Бойцов и машин</small></div><div class="stat-box"><strong id="army-power"></strong><small>Сила у текущего фронтира</small></div><div class="stat-box"><strong id="army-upkeep"></strong><small>Еды / сек на содержание</small></div></div><div class="note">Когда провизия заканчивается, армия теряет 30% силы. Казармы и другие военные здания вербуют войска бесплатно. На карте можно выбрать тактику и строй.</div><div class="toolbar"><h2>Королевское войско</h2><div class="toggle">${[1,5,10].map(n=>`<button data-action="quantity" data-id="${n}" class="${quantity===n?'active':''}">×${n}</button>`).join('')}</div></div><div class="grid">${G.UNITS.map(u=>{const c=G.recruitCost(s,u.id,quantity),locked=s.lands<u.unlock;return `<article class="card ${locked?'locked':''}"><div class="row"><span class="card-icon">${u.icon}</span><strong class="gold-text" data-unit="${u.id}"></strong></div><h3>${u.name}</h3><p>${u.desc}</p><small class="muted">Сила ${u.power} · Провизия ${u.upkeep} / сек</small>${locked?`<p class="tag">После ${u.unlock} земель</p>`:costs(c)}${button('recruit',u.id,`Нанять ×${quantity}`,c,locked)}</article>`;}).join('')}</div>`;}
-function researchView(){return `<div class="toolbar"><h2>Древо открытий</h2><span class="badge">${s.techs.length} / ${G.TECHS.length}</span></div><div class="grid">${G.TECHS.map(t=>{const done=s.techs.includes(t.id),locked=s.lands<t.unlock,c=G.techCost(s,t.id);return `<article class="card ${locked?'locked':''} ${done?'completed':''}"><div class="row"><span class="card-icon">${done?'✓':'⌘'}</span><span class="level">${t.effect==='power'?'ВОЕННОЕ ДЕЛО':t.effect==='all'?'РАЗВИТИЕ':'ЗНАНИЕ'}</span></div><h3>${t.name}</h3><p>${t.desc}</p>${done?'<p class="good">Открытие действует в этом забеге.</p>':locked?`<p class="tag">Нужно ${t.unlock} земель</p>`:costs(c)}${button('research',t.id,done?'Изучено':locked?'Пока недоступно':'Исследовать',c,locked||done)}</article>`;}).join('')}</div>`;}
-function expeditionsView(){return `<div class="note">Два отряда могут идти разными маршрутами. Армия остаётся в королевстве: экспедиции снаряжаются из ресурсов. Награды выдаются автоматически, в том числе после возвращения в игру.</div><div class="grid">${G.EXPEDITIONS.map(e=>{const active=s.expeditions.find(x=>x.id===e.id),locked=s.lands<e.unlock;return `<article class="card ${locked?'locked':''}"><div class="row"><span class="card-icon">${e.relic?'◈':'⌖'}</span><span class="level">${Math.ceil(G.expeditionDuration(s,e))} СЕК</span></div><h3>${e.name}</h3><p>${e.desc}</p><small class="good">Добыча: ${Object.entries(e.reward).map(([k,v])=>`${fmt(v)} ${G.RES[k][0]}`).join(' · ')}${e.relic?' + реликвия':''}</small>${locked?`<p class="tag">После ${e.unlock} земель</p>`:costs(e.cost)}${active?`<p class="gold-text" data-timer="${e.id}"></p>`:''}${button('expedition',e.id,active?'В пути':locked?'Пока недоступно':s.expeditions.length>=2?'Оба отряда заняты':'Отправить отряд',e.cost,locked||!!active||s.expeditions.length>=2)}</article>`;}).join('')}</div>`;}
-function legacyView(){return `<section class="panel"><div class="row"><div><div class="eyebrow">СМЕНА ДИНАСТИЙ</div><h2>Угли станут новым солнцем.</h2><p class="muted">Добытые знания погибнут с королевством. Наследие, достижения и коллекция реликвий останутся.</p></div><span class="card-icon gold-text" style="font-size:50px">◈</span></div><div class="row" style="margin-top:20px"><span class="gold-text">Награда сейчас: ${G.reward(s)} ◈</span>${button('prestige','',G.reward(s)?'Возродить династию':'Нужно 3 земли',{},!G.reward(s),'gold')}</div></section><div class="section-heading"><h2>Вечные улучшения</h2><span class="badge">${s.meta.shards} ◈</span></div><div class="grid">${G.LEGACY.map(([n,d],i)=>`<article class="card"><div class="row"><span class="card-icon">${['✦','⚑','☀','✧','♜','⌖','◉','⌘'][i]}</span><span class="level">${s.meta.levels[i]} / 10</span></div><h3>${n}</h3><p>${d}</p><button data-action="upgrade" data-id="${i}" data-shards="${G.legacyCost(s,i)}" ${s.meta.levels[i]>=10?'data-locked="true" disabled':''}>${s.meta.levels[i]>=10?'Максимум':`Улучшить · ${G.legacyCost(s,i)} ◈`}</button></article>`).join('')}</div><div class="section-heading"><h2>Зал реликвий</h2><span class="badge">${s.meta.relics.length} / 12 · надето ${s.activeRelics.length}/3</span></div><p class="note">Реликвии дают бонус только когда надеты. Найди их у боссов глав или в Гробнице династий. Можно носить три одновременно.</p><div class="grid">${G.RELICS.map(r=>{const owned=s.meta.relics.includes(r.id),active=s.activeRelics.includes(r.id);return `<article class="card relic ${active?'equipped':''} ${!owned?'locked':''}"><span class="card-icon">${owned?'◈':'◇'}</span><h3>${r.name}</h3><p>${r.desc}</p>${button('equip',r.id,!owned?'Ещё не найдена':active?'Снять реликвию':'Надеть',{},!owned||(!active&&s.activeRelics.length>=3))}</article>`;}).join('')}</div>`;}
-function objectives(){return `<div class="section-heading"><h2>Поручения совета</h2><span class="badge">${s.quests.length} / 16</span></div>${G.QUESTS.map(q=>{const done=s.quests.includes(q.id);return `<article class="objective-line"><span>${done?'✓':'✧'}</span><div><h3>${q.name}</h3><p>${q.desc} · <span data-quest-count="${q.id}"></span></p><div class="progress"><span data-quest-bar="${q.id}"></span></div><small class="gold-text">${Object.entries(q.reward).map(([k,v])=>`${fmt(v)} ${G.RES[k][0]}`).join(' · ')}</small></div><button data-action="quest" data-id="${q.id}" ${done?'disabled data-locked="true"':''} data-quest="${q.id}">${done?'Получено':'Забрать'}</button></article>`;}).join('')}<div class="section-heading"><h2>Хроника достижений</h2><span class="badge">${s.meta.achievements.length} / 12</span></div><p class="note">Каждое достижение даёт 1 вечный осколок. Награда выдаётся автоматически и сохраняется между династиями.</p><div class="grid three">${G.ACHIEVEMENTS.map(a=>`<article class="achievement ${s.meta.achievements.includes(a.id)?'done':''}"><h3>${s.meta.achievements.includes(a.id)?'✦':'◇'} ${a.name}</h3><p>${a.desc} · +1 ◈</p></article>`).join('')}</div>`;}
-function journal(){return hero(3,'Мир, который забыл утро','Триста лет назад солнце остановилось над Цитаделью. К вечеру его уже не было. Теперь каждое пламя — обещание, что однажды рассвет вернётся.')+`<div class="section-heading"><h2>Народы последней эпохи</h2></div><div class="grid">${Object.values(G.RACES).map(r=>`<article class="card"><span class="card-icon" style="color:${r.color}">${r.icon}</span><h3>${r.name}</h3><span class="tag">${r.subtitle}</span><p>${r.lore}</p><small class="gold-text">${r.desc}</small></article>`).join('')}</div>${G.BIOMES.map((b,i)=>`<div class="section-heading"><h2>${b.name}</h2><span class="tag">ГЛАВА ${i+1}</span></div><p class="note">${b.desc}</p><div class="stack">${G.LANDS.filter(l=>l.chapter===i).map(l=>`<article class="panel"><div class="row"><h3>${l.boss?'♛ ':''}${l.name}</h3><small class="${l.id<s.lands?'good':'muted'}">${l.id<s.lands?'Завоёвано':l.id===s.lands?'Фронтир':'Впереди'}</small></div><p class="muted">${l.lore}</p></article>`).join('')}</div>`).join('')}`;}
-function render(){renderResources();renderChrome();const f={heroes:heroesView,settlement,campaign,army,research:researchView,expeditions:expeditionsView,legacy:legacyView,objectives,journal};html('view',((view==='campaign'||view==='army')?heroAbilityBar():'')+f[view]()+((view==='settlement'&&s.buildings[6])?tradePanel():''));pulse();}
-function pulse(){const r=G.rates(s);for(const k in G.RES){text(`res-${k}`,fmt(s.resources[k]));text(`rate-${k}`,`${r[k]>=0?'+':''}${fmt(r[k])} / сек`);$(`rate-${k}`).className=`rate ${r[k]<0?'bad':'good'}`;}text('res-shards',fmt(s.meta.shards));text('click-value',`+${fmt(G.clickValue(s))} ◉ · +${fmt(.25+s.buildings[3]*.3)} ♧`);text('combo',s.combo?`СЕРИЯ ${s.combo}/20 · +${Math.round(s.combo*2.5)}%`:'Критический клик: ×3');text('playtime',`Время династии: ${Math.floor(s.elapsed/60)} мин`);
-const l=G.LANDS[s.lands],p=G.power(s),d=G.defense(s);text('side-power',fmt(p));text('side-def',`Защита ${fmt(d)} · ${p>=d?'Сил достаточно':'Нужны подкрепления'}`);if($('side-progress'))$('side-progress').style.width=`${Math.min(100,p/d*100)}%`;
-if(view==='campaign'){const target=G.LANDS[Math.min(23,selectedLand??s.lands)],bp=G.power(s,target),bd=G.defense(s,target);text('battle-loss',`При победе: потери ${Math.round(G.lossRate(s,true)*100)}%. При поражении: ${Math.round(G.lossRate(s,false)*100)}%.`);text('battle-power',fmt(bp));text('battle-verdict',`${bp>=bd?'Победа ожидается':'Сил недостаточно'}${s.resources.food<=0&&G.upkeep(s)>0?' · Нехватка провизии: −30% силы':''}`);$('battle-progress').style.width=`${Math.min(100,bp/bd*100)}%`;}
-if(view==='army'){text('army-total',fmt(Object.values(s.units).reduce((a,b)=>a+b,0)));text('army-power',fmt(p));text('army-upkeep',fmt(G.upkeep(s)));document.querySelectorAll('[data-unit]').forEach(e=>{e.textContent=fmt(s.units[e.dataset.unit]);});}
-document.querySelectorAll('[data-resource]').forEach(e=>e.classList.toggle('insufficient',s.resources[e.dataset.resource]<+e.dataset.amount));document.querySelectorAll('button[data-pay]').forEach(b=>{b.disabled=!!b.dataset.locked||!s.race||!G.affordable(s,JSON.parse(b.dataset.pay));if(b.dataset.action==='attack'&&Object.values(s.units).reduce((a,b)=>a+b,0)<1)b.disabled=true;});document.querySelectorAll('[data-shards]').forEach(b=>b.disabled=!!b.dataset.locked||s.meta.shards<+b.dataset.shards);
-document.querySelectorAll('[data-timer]').forEach(e=>{const x=s.expeditions.find(x=>x.id===e.dataset.timer);e.textContent=x?`В пути · ${Math.ceil(x.remaining)} сек`:'Завершено';});
-heroPulse();if(view==='objectives')for(const q of G.QUESTS){const n=Math.min(q.target,G.stat(s,q.stat));document.querySelector(`[data-quest-count="${q.id}"]`).textContent=`${fmt(n)} / ${q.target}`;document.querySelector(`[data-quest-bar="${q.id}"]`).style.width=`${n/q.target*100}%`;document.querySelector(`[data-quest="${q.id}"]`).disabled=s.quests.includes(q.id)||n<q.target;}
+import * as G from "./engine.js?v=3";
+import {
+  loadMedia,
+  createMediaLibrary,
+  settlementStage,
+  settlementBuildings,
+  installImageFallbacks,
+} from "./media.js?v=4";
+import { createBattlePresentation } from "./battle-presentation.js?v=4";
+import { createAudioManager } from "./audio.js?v=4";
+const mediaManifest = await loadMedia();
+const media = createMediaLibrary(mediaManifest);
+const art = (id, label = "", className = "", eager = false) =>
+  media.image(id, label, { className, eager });
+installImageFallbacks(document);
+let musicActivated = false;
+
+const $ = (id) => document.getElementById(id),
+  nf = new Intl.NumberFormat("ru", { maximumFractionDigits: 0 }),
+  cf = new Intl.NumberFormat("ru", {
+    maximumFractionDigits: 1,
+    notation: "compact",
+  }),
+  df = new Intl.NumberFormat("ru", { maximumFractionDigits: 1 });
+const sf = new Intl.NumberFormat("ru", { maximumFractionDigits: 3 });
+const fmt = (n) =>
+    n >= 10000
+      ? cf.format(n)
+      : Math.abs(n) >= 100
+        ? nf.format(n)
+        : Math.abs(n) > 0 && Math.abs(n) < 1
+          ? sf.format(n)
+          : df.format(n),
+  esc = (t) =>
+    String(t).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+const views = [
+  [
+    "heroes",
+    "⚜",
+    "Герои",
+    "Те, кто вернут солнце",
+    "Собери команду из двух спутников. Их опыт, способности и таланты переживут смену династии.",
+  ],
+  [
+    "settlement",
+    "♜",
+    "Поселение",
+    "Город на краю рассвета",
+    "Добывай ресурсы, возводи кварталы и строй экономику, которая выдержит долгую войну.",
+  ],
+  [
+    "campaign",
+    "⚑",
+    "Кампания",
+    "Дорога к последней короне",
+    "Четыре главы. Двадцать четыре земли. Каждый рубеж меняет возможности твоей державы.",
+  ],
+  [
+    "army",
+    "♞",
+    "Армия",
+    "Знамёна твоей династии",
+    "Сочетай войска, выбирай строй и следи за провизией. Численность — только начало стратегии.",
+  ],
+  [
+    "research",
+    "⌘",
+    "Исследования",
+    "Знание переживёт тьму",
+    "Технологии открываются по мере завоеваний. Выбирай между силой сейчас и экономикой на будущее.",
+  ],
+  [
+    "expeditions",
+    "⌖",
+    "Экспедиции",
+    "За пределами карты",
+    "Два отряда могут путешествовать одновременно. Они принесут ресурсы и древние реликвии.",
+  ],
+  [
+    "legacy",
+    "◈",
+    "Наследие",
+    "Вечность помнит тебя",
+    "Улучшения, достижения и найденные реликвии сохраняются между династиями.",
+  ],
+  [
+    "objectives",
+    "✧",
+    "Задания",
+    "Маленькие шаги к легенде",
+    "Получай награды за развитие королевства и собирай вечные осколки достижений.",
+  ],
+  [
+    "journal",
+    "☷",
+    "Летопись",
+    "Мир до последнего рассвета",
+    "Истории земель, народов и тех, кто однажды вернёт солнце.",
+  ],
+];
+let heroDetail = "avelin";
+let s = G.fresh(),
+  view = "settlement",
+  filter = "Все",
+  quantity = 1,
+  chapter = 0,
+  selectedLand = null,
+  sound = false,
+  motion = true,
+  audio,
+  toastTimer,
+  settings,
+  saveError = false,
+  hiddenAt = null;
+try {
+  settings = JSON.parse(localStorage.getItem("ash-crowns-settings") || "{}");
+  sound = !!settings.sound;
+  motion = settings.motion !== false;
+  const raw = localStorage.getItem(G.KEY),
+    old = localStorage.getItem(G.OLDKEY);
+  if (raw) {
+    const p = G.hydrateHeroes(JSON.parse(raw));
+    if (G.valid(p)) s = p;
+    else {
+      saveError = true;
+      localStorage.setItem("ash-crowns-recovery", raw);
+    }
+  } else if (old) {
+    const p = G.migrate(JSON.parse(old));
+    if (p) s = p;
+  }
+  if (s.race) {
+    const dt = Math.max(0, (Date.now() - s.last) / 1000);
+    G.tick(s, dt);
+    if (dt > 60)
+      G.log(
+        s,
+        `Возвращение: ресурсы за ${Math.floor(Math.min(7200, dt) / 60)} мин. Максимум — два часа.`,
+      );
+  }
+} catch {
+  saveError = true;
 }
-function eventModal(){if(s.event===null)return;const e=G.EVENTS[s.event];modal(`<div class="eyebrow">ВЕСТИ КОРОЛЕВСТВА</div><h2 id="modal-title">${e.title}</h2><p>${e.text}</p><div class="event-options">${e.options.map(([label,r],i)=>`<button data-action="event-choice" data-id="${i}" ${payAttrs(Object.fromEntries(Object.entries(r).filter(([,v])=>v<0).map(([k,v])=>[k,-v])))}>${label}</button>`).join('')}</div><div class="dialog-actions"><button data-action="close">Решить позже</button></div>`);pulse();}
-function prestigeModal(){if(!G.reward(s))return;modal(`<div class="eyebrow">КОНЕЦ ОДНОЙ ИСТОРИИ — НАЧАЛО ДРУГОЙ</div><h2 id="modal-title">Оставить корону пеплу?</h2><p>Ты получишь <strong class="gold-text">${G.reward(s)} вечных осколков</strong>. Золото, дерево, железо, эфир, провизия, здания, войска, технологии, экспедиции и задания сбросятся.</p><p>Сохранятся: осколки, вечные улучшения, достижения и все ${s.meta.relics.length} найденных реликвий. Ты выберешь новую расу. Защита врагов вырастет на 18% от базовой.</p><div class="dialog-actions"><button data-action="close">Продолжить поход</button><button class="gold" data-action="rebirth">Возродиться</button></div>`);}
-document.addEventListener('click',e=>{const b=e.target.closest('button[data-action]');if(!b||b.disabled)return;const a=b.dataset.action,id=b.dataset.id;let changed=true;
-if(a==='gather'){const result=G.gather(s);if(!result)return;beep(result.crit);if(motion&&$('gather').querySelectorAll('.spark').length<8){const el=document.createElement('span');el.className=`spark ${result.crit?'crit':''}`;el.textContent=`${result.crit?'✦ ':''}+${fmt(result.gold)}`;$('gather').append(el);setTimeout(()=>el.remove(),720);}pulse();return;}
-switch(a){case'hero-detail':heroDetail=id;break;case'hire-hero':changed=G.hireHero(s,id);if(changed){heroDetail=id;G.log(s,`${G.HEROES.find(h=>h.id===id).name} присоединяется к династии.`);}break;case'assign-hero':changed=G.assignHero(s,id);break;case'hero-talent':{const[hid,tier,choice]=id.split(':');changed=G.chooseTalent(s,hid,+tier,+choice);break;}case'hero-respec':changed=G.respecHero(s,id);break;case'hero-ability':changed=G.heroAbility(s,id);if(changed){G.tick(s,0);toast(G.HEROES.find(h=>h.id===id).ability+'!');}break;case'view':view=id;filter='Все';selectedLand=null;if(view==='campaign')chapter=Math.min(3,Math.floor(s.lands/6));break;case'filter':filter=id;break;case'quantity':quantity=+id;break;case'race':if(G.RACES[id]){s.race=id;G.log(s,`У власти — ${G.RACES[id].name}.`);$('modal').close();}break;case'build':changed=G.buy(s,+id,quantity);if(changed)beep();break;case'recruit':changed=G.recruit(s,id,quantity);break;case'research':changed=G.research(s,id);if(changed)toast('Новое знание меняет королевство.');break;case'policy':s.policy=+id;break;case'chapter':chapter=+id;selectedLand=chapter*6;break;case'land':selectedLand=+id;break;case'attack':{if(+id!==s.lands)return;const result=G.fight(s);if(result===null)return;toast(result?'Победа! Новый рубеж открыт.':'Отступление. Проверь тактику, строй и провизию.');selectedLand=null;chapter=Math.min(3,Math.floor(s.lands/6));beep(result);break;}case'expedition':changed=G.startExpedition(s,id);if(changed)toast('Отряд отправился в путь.');break;case'quest':changed=G.claimQuest(s,+id);if(changed)toast('Награда получена.');break;case'upgrade':changed=G.upgrade(s,+id);if(changed)toast('Наследие усилено навсегда.');break;case'equip':changed=G.equip(s,id);break;case'prestige':prestigeModal();return;case'rebirth':{const next=G.rebirth(s);if(!next)return;s=next;view='settlement';chapter=0;selectedLand=null;$('modal').close();chooseRace();break;}case'event':eventModal();return;case'event-choice':changed=G.chooseEvent(s,+id);if(changed)$('modal').close();break;case'help':openHelp();return;case'settings':openSettings();return;case'sound':sound=!sound;persistSettings();beep();openSettings();return;case'motion':motion=!motion;persistSettings();document.body.classList.toggle('reduce-motion',!motion);openSettings();return;case'close':if(s.race)$('modal').close();return;case'export':exportSave();return;case'trade':changed=G.trade(s,$('trade-from').value,$('trade-to').value);if(changed)toast('Обмен завершён.');break;default:return;}
-if(!changed){toast('Недостаточно ресурсов или действие пока недоступно.');return;}G.achievements(s);save();render();if(a==='view')window.scrollTo({top:0,behavior:'instant'});});
-document.addEventListener('change',async e=>{if(e.target.id==='tactic'||e.target.id==='formation'){s[e.target.id]=+e.target.value;save();pulse();return;}if(e.target.id!=='import-save')return;const file=e.target.files[0];if(!file)return;try{if(file.size>100000)throw Error();let candidate=JSON.parse(await file.text());if(candidate.v===1)candidate=G.migrate(candidate);else candidate=G.hydrateHeroes(candidate);if(!G.valid(candidate))throw Error();modal('<h2 id="modal-title">Восстановить династию?</h2><p>Текущий прогресс будет заменён данными из файла. Скачай резервную копию текущей игры, если хочешь сохранить оба варианта.</p><div class="dialog-actions"><button data-action="close">Отмена</button><button id="confirm-import" class="gold">Восстановить</button></div>');$('confirm-import').onclick=()=>{s=candidate;s.last=Date.now();view='settlement';selectedLand=null;chapter=Math.min(3,Math.floor(s.lands/6));save();$('modal').close();render();if(!s.race)chooseRace();toast('Сохранение восстановлено.');};}catch{toast('Повреждённый или неподдерживаемый файл сохранения.');}});
-function persistSettings(){try{localStorage.setItem('ash-crowns-settings',JSON.stringify({sound,motion}));}catch{}}
-function exportSave(){save();const url=URL.createObjectURL(new Blob([JSON.stringify(s)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='ash-crowns-v2-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
-$('modal').addEventListener('cancel',e=>{if(!s.race)e.preventDefault();});
-let previous=performance.now();const signature=()=>JSON.stringify([s.event,s.expeditions.map(x=>x.id),s.meta.achievements,s.logs,s.quests,s.party,Object.entries(s.meta.heroes).map(([id,p])=>[id,p.level,p.choices])]);
-function step(){const now=performance.now(),dt=(now-previous)/1000;previous=now;const before=signature();G.tick(s,dt);if(before!==signature())render();else pulse();}
-setInterval(()=>{if(!document.hidden)step();},250);setInterval(()=>{if(!document.hidden)save();},10000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();hiddenAt=Date.now();}else{if(hiddenAt!==null)G.tick(s,Math.max(0,(Date.now()-hiddenAt)/1000));hiddenAt=null;previous=performance.now();render();}});
-window.addEventListener('pagehide',save);render();if(!s.race)chooseRace();if(saveError)toast('Не удалось прочитать сохранение. Исходные данные не удалены.');
+chapter = Math.min(3, Math.floor(s.lands / 6));
+document.body.classList.toggle("reduce-motion", !motion);
+const audioManager = createAudioManager({
+  assets: mediaManifest.assets,
+  settings,
+});
+sound = audioManager.getSettings().effectsEnabled;
+const frame = media.get("ui-frame");
+if (frame)
+  document.documentElement.style.setProperty(
+    "--ui-frame",
+    'url("' + frame.path + '")',
+  );
+const buttonFrame = media.get("ui-button");
+if (buttonFrame)
+  document.documentElement.style.setProperty(
+    "--ui-button",
+    'url("' + buttonFrame.path + '")',
+  );
+const effectiveMotion = () =>
+  motion && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function tradePanel(){return '<section class="panel" style="margin-top:22px"><div class="eyebrow">КАРАВАННЫЙ ОБМЕН</div><h2>Рынок ресурсов</h2><p class="muted">Отдай 100 единиц одного ресурса и получи '+(s.race==='human'?90:70)+' другого. Выручит, когда для следующего шага не хватает одного материала.</p><div class="trade-controls"><label>Отдать<select id="trade-from" aria-label="Ресурс для продажи">'+Object.entries(G.RES).map(([id,[i,n]])=>'<option value="'+id+'">'+i+' '+n+'</option>').join('')+'</select></label><label>Получить<select id="trade-to" aria-label="Ресурс для покупки">'+Object.entries(G.RES).map(([id,[i,n]])=>'<option value="'+id+'" '+(id==='iron'?'selected':'')+'>'+i+' '+n+'</option>').join('')+'</select></label><button data-action="trade">Обменять 100</button></div></section>';}
+const cache = new Map();
+function html(id, markup) {
+  if (cache.get(id) !== markup) {
+    $(id).innerHTML = markup;
+    cache.set(id, markup);
+  }
+}
+function text(id, t) {
+  const e = $(id);
+  if (e && e.textContent !== String(t)) e.textContent = t;
+}
+function save() {
+  s.last = Date.now();
+  try {
+    localStorage.setItem(G.KEY, JSON.stringify(s));
+    saveError = false;
+    text("save-status", "● Прогресс сохранён");
+  } catch {
+    saveError = true;
+    text("save-status", "Скачайте сохранение в настройках");
+  }
+}
+function toast(t) {
+  text("toast", t);
+  $("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("toast").classList.remove("show"), 3200);
+}
+function beep(crit = false) {
+  audioManager.playSfx(crit ? "crit" : "click");
+}
+function costs(c) {
+  return `<div class="cost">${Object.entries(c)
+    .map(
+      ([k, v]) =>
+        `<span data-resource="${k}" data-amount="${v}">${G.RES[k]?.[0] || "⚑"} ${fmt(v)}</span>`,
+    )
+    .join("")}</div>`;
+}
+function payAttrs(c, locked = false) {
+  return `data-pay='${JSON.stringify(c)}' ${locked ? 'data-locked="true" disabled' : ""}`;
+}
+const button = (action, id, label, c = {}, locked = false, cls = "") =>
+  `<button data-action="${action}" data-id="${id}" class="${cls}" ${payAttrs(c, locked)}>${label}</button>`;
+function modal(markup) {
+  $("modal-content").innerHTML = markup;
+  if (!$("modal").open) $("modal").showModal();
+}
+function chooseRace() {
+  modal(
+    `<div class="eyebrow">ДИНАСТИЯ ${s.meta.era} · НОВЫЙ РАССВЕТ</div><h2 id="modal-title">Кто поднимется из пепла?</h2><p>Каждый народ меняет твою стратегию. После возрождения можно выбрать другой. Наследие и реликвии останутся с тобой.</p><div class="race-choices">${Object.entries(
+      G.RACES,
+    )
+      .map(
+        ([id, r]) =>
+          `<button class="race-choice" data-action="race" data-id="${id}"><span style="color:${r.color}">${r.icon}</span><strong>${r.name}</strong><small>${r.desc}</small></button>`,
+      )
+      .join("")}</div>`,
+  );
+}
+function openHelp() {
+  modal(
+    `<div class="eyebrow">КОРОЛЕВСКИЙ СПРАВОЧНИК</div><h2 id="modal-title">От искры до империи</h2><div class="guide-section"><h3>Начало пути</h3><p>Разжигай горнило, затем построй шахту, лесопилку и поля. Казармы бесплатно вербуют ополчение. Нажатия также дают дерево; серия нажатий повышает добычу до +50%. Базовый шанс тройного критического клика — 5%.</p></div><div class="guide-section"><h3>Война и снабжение</h3><p>Армия ест провизию. Если запас закончился, сила падает на 30%, но бойцы не исчезают. Севооборот, поля и указ «Урожай» помогают снабжению. Войска автоматически накапливаются в военных зданиях, доступны и покупки отрядов.</p><p>Обход побеждает Натиск; Оборона побеждает Обход; Натиск побеждает Оборону. Контртактика: +35% силы. Неудачная тактика: −20%. При силе не ниже защиты победа гарантирована. Базовые потери — 20% при победе, 12% при поражении.</p><p>Ударный строй: +8% общей силы, ещё +35% всадникам, но потери выше на 25%. Стрелковый строй: +30% стрелкам, общая сила −5%, потери ниже на 30%. Требушеты сильнее против крепостей, маги — против духов.</p></div><div class="guide-section"><h3>Экспедиции и события</h3><p>Одновременно доступны две экспедиции. Награды поступают автоматически. Гробница династий гарантирует неизвестную реликвию, пока не собраны все двенадцать. Событие возникает примерно раз в 100 секунд активного игрового времени, ожидает выбора и не отнимает ресурсы самостоятельно.</p></div><div class="guide-section"><h3>Наследие</h3><p>После трёх земель доступно возрождение. Награда: число земель +4 за каждую завершённую главу, затем бонусы технологий и реликвий. Здания, войска, технологии, задания и ресурсы сбрасываются. Осколки, 8 веток улучшений, достижения и коллекция реликвий остаются. Одновременно можно носить три реликвии. Следующая династия повышает защиту врагов на 18% от базовой.</p></div><div class="guide-section"><h3>Герои династии</h3><p>В зале героев можно нанять восемь спутников. Порог найма зависит от лучшего результата всех династий. Два активных героя дают пассивные бонусы и получают опыт за победы, задания и экспедиции. Уровни, найм и таланты сохраняются при возрождении. На уровнях 3, 7, 12 и 18 выбирай один из двух талантов. Таланты можно сбросить за золото. Способности требуют ресурсов и имеют перезарядку.</p></div><div class="guide-section"><h3>Сохранение</h3><p>Прогресс записывается каждые 10 секунд и при уходе со страницы. До двух часов производства вне игры. Резервную копию можно скачать и восстановить в настройках. Старое сохранение v0.1 переносится автоматически. Данные остаются в этом браузере.</p></div><button data-action="close" class="gold wide">Вернуться к королевству</button>`,
+  );
+}
+function openSettings() {
+  const audio = audioManager.getSettings();
+  modal(`<div class="eyebrow">НАСТРОЙКИ ПУТЕШЕСТВИЯ</div><h2 id="modal-title">У походного костра</h2>
+<div class="settings-row"><div><strong>Музыка мира</strong><p>Четыре оркестровые темы. Меняются вместе с твоим путешествием.</p></div><button data-action="music-toggle" class="${musicActivated ? "active" : ""}">${musicActivated ? "Выключить" : "Включить музыку"}</button></div>
+<div class="volume-row"><label for="music-volume">Громкость музыки</label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(audio.musicVolume * 100)}"><output id="music-volume-value">${Math.round(audio.musicVolume * 100)}%</output></div>
+<div class="settings-row"><label>Звуки действий</label><button data-action="sound">${audio.effectsEnabled ? "Включены" : "Выключены"}</button></div>
+<div class="volume-row"><label for="effects-volume">Громкость эффектов</label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(audio.effectsVolume * 100)}"><output id="effects-volume-value">${Math.round(audio.effectsVolume * 100)}%</output></div>
+<div class="settings-row"><label>Анимации и сцены боя</label><button data-action="motion">${motion ? "Включены" : "Выключены"}</button></div>
+<div class="settings-row"><div><strong>Резервная копия</strong><p>Скачай прогресс перед переносом в другой браузер.</p></div><button data-action="export">Скачать JSON</button></div>
+<div class="settings-row"><label for="import-save">Восстановить сохранение</label><input id="import-save" type="file" accept="application/json"></div>
+<div class="settings-row"><div><strong>Художники и композиторы</strong><p>Открытые материалы, благодарности и условия использования.</p></div><button data-action="credits">Авторы и лицензии</button></div>
+<p>Версия 0.4 · Материалы хранятся вместе с игрой. Музыка загружается после включения, изображения — по мере открытия разделов. При скрытии вкладки звук приостанавливается.</p><div class="dialog-actions"><button data-action="close" class="gold">Готово</button></div>`);
+}
+function renderResources() {
+  html(
+    "resources",
+    Object.entries(G.RES)
+      .map(
+        ([k, [i, n]]) =>
+          `<div class="resource"><span>${i}</span><div><small>${n}</small><strong id="res-${k}">0</strong><span class="rate" id="rate-${k}"></span></div></div>`,
+      )
+      .join("") +
+      '<div class="resource"><span>◈</span><div><small>Наследие</small><strong id="res-shards">0</strong><small>Вечные осколки</small></div></div>',
+  );
+}
+function renderChrome() {
+  const r = G.RACES[s.race];
+  text("race-icon", r?.icon || "♜");
+  text("race-name", r?.name || "Новая династия");
+  text("era", `Династия ${s.meta.era} · ${s.lands}/24 земель`);
+  html(
+    "navigation",
+    views
+      .map(
+        ([id, i, n]) =>
+          `<button data-action="view" data-id="${id}" class="${view === id ? "active" : ""}" ${view === id ? 'aria-current="page"' : ""}><span>${i} ${n}</span>${id === "objectives" ? `<em>${G.QUESTS.filter((q) => !s.quests.includes(q.id) && G.stat(s, q.stat) >= q.target).length}</em>` : id === "legacy" ? `<em>${s.meta.shards}</em>` : ""}</button>`,
+      )
+      .join(""),
+  );
+  const v = views.find((v) => v[0] === view);
+  text("page-eyebrow", `КОРОЛЕВСКИЙ АРХИВ / ${v[2].toUpperCase()}`);
+  text("page-title", v[3]);
+  text("page-description", v[4]);
+  text("page-badge", `${s.lands}/24 земель · ${s.meta.era} династия`);
+  html(
+    "policies",
+    ["Торговля", "Мобилизация", "Лесозаготовка", "Урожай"]
+      .map(
+        (n, i) =>
+          `<button data-action="policy" data-id="${i}" class="${s.policy === i ? "active" : ""}">${n}</button>`,
+      )
+      .join(""),
+  );
+  text(
+    "policy-description",
+    [
+      "Золото +30%. Развивай доходы.",
+      "Вербовка +50%, золото −20%.",
+      "Производство дерева +40%.",
+      "Производство провизии +50%.",
+    ][s.policy],
+  );
+  const l = G.LANDS[s.lands];
+  html(
+    "frontier",
+    l
+      ? `<h3>${l.name}</h3><p class="muted">${l.boss ? "♛ Хранитель главы" : G.BIOMES[l.chapter].name} · ${G.TACTICS[l.stance]}</p><div class="row"><small class="muted">Сила армии</small><strong id="side-power" class="gold-text"></strong></div><div class="progress"><span id="side-progress"></span></div><p id="side-def" class="muted"></p><button class="wide" data-action="view" data-id="campaign">Открыть карту →</button>`
+      : '<h3>Солнце возвращается.</h3><p class="muted">Кампания завершена. Начни новую династию с вечным наследием.</p><button data-action="view" data-id="legacy" class="gold wide">К наследию</button>',
+  );
+  html(
+    "active-expeditions",
+    s.expeditions.length
+      ? s.expeditions
+          .map(
+            (x) =>
+              `<div class="timer-row">${G.EXPEDITIONS.find((e) => e.id === x.id).name}<small data-timer="${x.id}"></small></div>`,
+          )
+          .join("")
+      : '<p class="muted">Отряды ждут приказа.</p><button class="wide" data-action="view" data-id="expeditions">Снарядить отряд</button>',
+  );
+  html("log", s.logs.map((t) => `<p>${esc(t)}</p>`).join(""));
+  html(
+    "event-banner",
+    s.event === null
+      ? ""
+      : `<div class="event-banner"><div><div class="eyebrow">ВЕСТИ ИЗ КОРОЛЕВСТВА</div><strong>${G.EVENTS[s.event].title}</strong><p>Совет ждёт твоего решения.</p></div><button data-action="event" class="gold">Принять посланника</button></div>`,
+  );
+  const q = G.QUESTS.find((q) => !s.quests.includes(q.id));
+  html(
+    "next-goal",
+    q
+      ? `БЛИЖАЙШАЯ ЦЕЛЬ<strong>${q.name}</strong>${q.desc}`
+      : "Все задания выполнены. Впереди — новая династия.",
+  );
+}
+function hero(ch, title, desc) {
+  return `<div class="hero painted-hero">${media.image("region-" + ch, G.BIOMES[ch].name, { width: 1200, height: 500, eager: true, fallback: "assets/chapter-" + ch + ".svg" })}<div class="hero-copy"><div class="eyebrow">${G.BIOMES[ch].tag}</div><h2>${title}</h2><p>${desc}</p></div></div>`;
+}
+function buildingCards() {
+  return G.BUILDINGS.map((b, i) => ({ b, i }))
+    .filter(({ b }) => filter === "Все" || b.group === filter)
+    .map(({ b, i }) => {
+      const locked = s.lands < b.unlock,
+        c = G.cost(s, i, quantity);
+      return `<article class="card ${locked ? "locked" : ""}"><div class="row">${art("building-" + b.id, b.name, "building-art")}<span class="level">УРОВЕНЬ ${s.buildings[i]}</span></div><h3>${b.name}</h3><p>${b.desc}</p>${
+        Object.keys(b.prod).length
+          ? `<small class="good">${Object.entries(b.prod)
+              .map(
+                ([k, v]) =>
+                  `${G.RES[k]?.[0] || "⚑"} +${fmt(v)} / сек за уровень`,
+              )
+              .join(" · ")}</small>`
+          : ""
+      }${locked ? `<p class="tag">Откроется после ${b.unlock} земель</p>` : costs(c)}${button("build", i, locked ? "Пока недоступно" : `Построить ×${quantity}`, c, locked)}</article>`;
+    })
+    .join("");
+}
+function settlement() {
+  return (
+    settlementScene() +
+    `<div class="toolbar"><div class="tabs">${["Все", "Добыча", "Ремесло", "Армия"].map((f) => `<button data-action="filter" data-id="${f}" class="${filter === f ? "active" : ""}">${f}</button>`).join("")}</div><div class="toggle" aria-label="Количество построек">${[1, 5, 10].map((n) => `<button data-action="quantity" data-id="${n}" class="${quantity === n ? "active" : ""}">×${n}</button>`).join("")}</div></div><div class="grid">${buildingCards()}</div>`
+  );
+}
+function campaign() {
+  const current = G.LANDS[s.lands],
+    idx = selectedLand ?? s.lands,
+    l = G.LANDS[Math.min(23, idx)],
+    done = l.id < s.lands,
+    next = l.id === s.lands;
+  return `<div class="chapter-tabs">${G.BIOMES.map((b, i) => `<button data-action="chapter" data-id="${i}" class="${chapter === i ? "active" : ""}">${i + 1}. ${b.name}</button>`).join("")}</div><div class="map painted-map">${media.image("region-" + chapter, "Карта региона " + G.BIOMES[chapter].name, { width: 1200, height: 500, eager: true, fallback: "assets/chapter-" + chapter + ".svg" })}${G.LANDS.filter(
+    (l) => l.chapter === chapter,
+  )
+    .map(
+      (l, i) =>
+        `<button class="map-node ${l.id < s.lands ? "done" : l.id === s.lands ? "active" : ""}" style="left:${[10, 25, 40, 56, 72, 89][i]}%;top:${[65, 39, 60, 31, 55, 24][i]}%" data-action="land" data-id="${l.id}" title="${l.name}" aria-label="${l.name}">${l.id < s.lands ? "✓" : l.boss ? "♛" : l.id + 1}</button>`,
+    )
+    .join(
+      "",
+    )}<span class="map-caption">${G.BIOMES[chapter].tag}</span></div><section class="panel battle"><div><div class="eyebrow">${done ? "ЗЕМЛЯ ПОД ТВОЕЙ КОРОНОЙ" : next ? "СЛЕДУЮЩАЯ ЦЕЛЬ" : "ЗА ГРАНЬЮ ФРОНТИРА"} · ${l.boss ? "БОСС" : "РУБЕЖ " + (l.id + 1)}</div><h2>${l.name}</h2><p class="lore">${l.lore}</p><p class="muted">Постоянный бонус в этом забеге: ${l.bonus}.</p><p class="muted">Добыча: ${Object.entries(
+    l.loot,
+  )
+    .map(([k, v]) => `${fmt(v)} ${G.RES[k][0]}`)
+    .join(
+      " · ",
+    )}${l.boss ? " · Древняя реликвия" : ""}</p><div class="note">${l.type === "fort" ? "Крепость: осадные машины сильнее на 60%." : l.type === "spirit" ? "Духи: маги сильнее на 50%." : l.boss ? "Хранитель главы. Победа открывает новые земли и реликвию." : "Выбери контртактику и накопи достаточно сил."}</div></div><div><div class="row"><small class="muted">Твоя сила</small><small class="muted">Защита врага</small></div><div class="row"><strong class="metric gold-text" id="battle-power"></strong><span class="metric">${fmt(G.defense(s, l))}</span></div><div class="progress"><span id="battle-progress"></span></div><p id="battle-verdict" class="muted"></p><div class="controls"><label>Тактика врага: ${G.TACTICS[l.stance]}<select id="tactic" aria-label="Тактика боя">${G.TACTICS.map((t, i) => `<option value="${i}" ${s.tactic === i ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>Боевой строй<select id="formation" aria-label="Боевой строй">${["Сбалансированный", "Ударный", "Стрелковый"].map((t, i) => `<option value="${i}" ${s.formation === i ? "selected" : ""}>${t}</option>`).join("")}</select></label></div>${button("attack", l.id, done ? "Уже завоёвано" : next ? "В поход →" : "Сначала предыдущие земли", {}, !next, "gold")}<p id="battle-loss" class="muted"></p></div></section><div class="section-heading"><h2>${current ? "Земли главы" : "Путь завершён"}</h2><span class="tag">${s.lands} / 24</span></div><div class="territories">${G.LANDS.filter(
+    (l) => l.chapter === chapter,
+  )
+    .map(
+      (l) =>
+        `<button class="territory ${l.id === idx ? "active" : ""}" data-action="land" data-id="${l.id}"><span>${l.id < s.lands ? "✓" : l.boss ? "♛" : "⚑"}</span><div><strong>${l.name}</strong><small>${l.id < s.lands ? "Захвачено · " : ""}${l.bonus}</small></div></button>`,
+    )
+    .join("")}</div>`;
+}
+function army() {
+  return `<div class="stat-grid"><div class="stat-box"><strong id="army-total"></strong><small>Бойцов и машин</small></div><div class="stat-box"><strong id="army-power"></strong><small>Сила у текущего фронтира</small></div><div class="stat-box"><strong id="army-upkeep"></strong><small>Еды / сек на содержание</small></div></div><div class="note">Когда провизия заканчивается, армия теряет 30% силы. Казармы и другие военные здания вербуют войска бесплатно. На карте можно выбрать тактику и строй.</div><div class="toolbar"><h2>Королевское войско</h2><div class="toggle">${[1, 5, 10].map((n) => `<button data-action="quantity" data-id="${n}" class="${quantity === n ? "active" : ""}">×${n}</button>`).join("")}</div></div><div class="grid">${G.UNITS.map(
+    (u) => {
+      const c = G.recruitCost(s, u.id, quantity),
+        locked = s.lands < u.unlock;
+      return `<article class="card ${locked ? "locked" : ""}"><div class="row">${art("unit-" + u.id, u.name, "unit-art")}<strong class="gold-text" data-unit="${u.id}"></strong></div><h3>${u.name}</h3><p>${u.desc}</p><small class="muted">Сила ${u.power} · Провизия ${u.upkeep} / сек</small>${locked ? `<p class="tag">После ${u.unlock} земель</p>` : costs(c)}${button("recruit", u.id, `Нанять ×${quantity}`, c, locked)}</article>`;
+    },
+  ).join("")}</div>`;
+}
+function researchView() {
+  return `<div class="toolbar"><h2>Древо открытий</h2><span class="badge">${s.techs.length} / ${G.TECHS.length}</span></div><div class="grid">${G.TECHS.map(
+    (t) => {
+      const done = s.techs.includes(t.id),
+        locked = s.lands < t.unlock,
+        c = G.techCost(s, t.id);
+      return `<article class="card ${locked ? "locked" : ""} ${done ? "completed" : ""}"><div class="row">${art("tech-" + t.id, t.name, "tech-art")}<span class="level">${t.effect === "power" ? "ВОЕННОЕ ДЕЛО" : t.effect === "all" ? "РАЗВИТИЕ" : "ЗНАНИЕ"}</span></div><h3>${t.name}</h3><p>${t.desc}</p>${done ? '<p class="good">Открытие действует в этом забеге.</p>' : locked ? `<p class="tag">Нужно ${t.unlock} земель</p>` : costs(c)}${button("research", t.id, done ? "Изучено" : locked ? "Пока недоступно" : "Исследовать", c, locked || done)}</article>`;
+    },
+  ).join("")}</div>`;
+}
+function expeditionsView() {
+  return `<div class="note">Два отряда могут идти разными маршрутами. Армия остаётся в королевстве: экспедиции снаряжаются из ресурсов. Награды выдаются автоматически, в том числе после возвращения в игру.</div><div class="grid">${G.EXPEDITIONS.map(
+    (e) => {
+      const active = s.expeditions.find((x) => x.id === e.id),
+        locked = s.lands < e.unlock;
+      return `<article class="card ${locked ? "locked" : ""}"><div class="row"><span class="card-icon">${e.relic ? "◈" : "⌖"}</span><span class="level">${Math.ceil(G.expeditionDuration(s, e))} СЕК</span></div><h3>${e.name}</h3><p>${e.desc}</p><small class="good">Добыча: ${Object.entries(
+        e.reward,
+      )
+        .map(([k, v]) => `${fmt(v)} ${G.RES[k][0]}`)
+        .join(
+          " · ",
+        )}${e.relic ? " + реликвия" : ""}</small>${locked ? `<p class="tag">После ${e.unlock} земель</p>` : costs(e.cost)}${active ? `<p class="gold-text" data-timer="${e.id}"></p>` : ""}${button("expedition", e.id, active ? "В пути" : locked ? "Пока недоступно" : s.expeditions.length >= 2 ? "Оба отряда заняты" : "Отправить отряд", e.cost, locked || !!active || s.expeditions.length >= 2)}</article>`;
+    },
+  ).join("")}</div>`;
+}
+function legacyView() {
+  return `<section class="panel"><div class="row"><div><div class="eyebrow">СМЕНА ДИНАСТИЙ</div><h2>Угли станут новым солнцем.</h2><p class="muted">Добытые знания погибнут с королевством. Наследие, достижения и коллекция реликвий останутся.</p></div><span class="card-icon gold-text" style="font-size:50px">◈</span></div><div class="row" style="margin-top:20px"><span class="gold-text">Награда сейчас: ${G.reward(s)} ◈</span>${button("prestige", "", G.reward(s) ? "Возродить династию" : "Нужно 3 земли", {}, !G.reward(s), "gold")}</div></section><div class="section-heading"><h2>Вечные улучшения</h2><span class="badge">${s.meta.shards} ◈</span></div><div class="grid">${G.LEGACY.map(([n, d], i) => `<article class="card"><div class="row"><span class="card-icon">${["✦", "⚑", "☀", "✧", "♜", "⌖", "◉", "⌘"][i]}</span><span class="level">${s.meta.levels[i]} / 10</span></div><h3>${n}</h3><p>${d}</p><button data-action="upgrade" data-id="${i}" data-shards="${G.legacyCost(s, i)}" ${s.meta.levels[i] >= 10 ? 'data-locked="true" disabled' : ""}>${s.meta.levels[i] >= 10 ? "Максимум" : `Улучшить · ${G.legacyCost(s, i)} ◈`}</button></article>`).join("")}</div><div class="section-heading"><h2>Зал реликвий</h2><span class="badge">${s.meta.relics.length} / 12 · надето ${s.activeRelics.length}/3</span></div><p class="note">Реликвии дают бонус только когда надеты. Найди их у боссов глав или в Гробнице династий. Можно носить три одновременно.</p><div class="grid">${G.RELICS.map(
+    (r) => {
+      const owned = s.meta.relics.includes(r.id),
+        active = s.activeRelics.includes(r.id);
+      return `<article class="card relic ${active ? "equipped" : ""} ${!owned ? "locked" : ""}">${art("relic-" + r.id, r.name, "relic-art")}<h3>${r.name}</h3><p>${r.desc}</p>${button("equip", r.id, !owned ? "Ещё не найдена" : active ? "Снять реликвию" : "Надеть", {}, !owned || (!active && s.activeRelics.length >= 3))}</article>`;
+    },
+  ).join("")}</div>`;
+}
+function objectives() {
+  return `<div class="section-heading"><h2>Поручения совета</h2><span class="badge">${s.quests.length} / 16</span></div>${G.QUESTS.map(
+    (q) => {
+      const done = s.quests.includes(q.id);
+      return `<article class="objective-line"><span>${done ? "✓" : "✧"}</span><div><h3>${q.name}</h3><p>${q.desc} · <span data-quest-count="${q.id}"></span></p><div class="progress"><span data-quest-bar="${q.id}"></span></div><small class="gold-text">${Object.entries(
+        q.reward,
+      )
+        .map(([k, v]) => `${fmt(v)} ${G.RES[k][0]}`)
+        .join(
+          " · ",
+        )}</small></div><button data-action="quest" data-id="${q.id}" ${done ? 'disabled data-locked="true"' : ""} data-quest="${q.id}">${done ? "Получено" : "Забрать"}</button></article>`;
+    },
+  ).join(
+    "",
+  )}<div class="section-heading"><h2>Хроника достижений</h2><span class="badge">${s.meta.achievements.length} / 12</span></div><p class="note">Каждое достижение даёт 1 вечный осколок. Награда выдаётся автоматически и сохраняется между династиями.</p><div class="grid three">${G.ACHIEVEMENTS.map((a) => `<article class="achievement ${s.meta.achievements.includes(a.id) ? "done" : ""}"><h3>${s.meta.achievements.includes(a.id) ? "✦" : "◇"} ${a.name}</h3><p>${a.desc} · +1 ◈</p></article>`).join("")}</div>`;
+}
+function journal() {
+  return (
+    hero(
+      3,
+      "Мир, который забыл утро",
+      "Триста лет назад солнце остановилось над Цитаделью. К вечеру его уже не было. Теперь каждое пламя — обещание, что однажды рассвет вернётся.",
+    ) +
+    `<div class="section-heading"><h2>Народы последней эпохи</h2></div><div class="grid">${Object.values(
+      G.RACES,
+    )
+      .map(
+        (r) =>
+          `<article class="card"><span class="card-icon" style="color:${r.color}">${r.icon}</span><h3>${r.name}</h3><span class="tag">${r.subtitle}</span><p>${r.lore}</p><small class="gold-text">${r.desc}</small></article>`,
+      )
+      .join("")}</div>${G.BIOMES.map(
+      (b, i) =>
+        `<div class="section-heading"><h2>${b.name}</h2><span class="tag">ГЛАВА ${i + 1}</span></div><p class="note">${b.desc}</p><div class="stack">${G.LANDS.filter(
+          (l) => l.chapter === i,
+        )
+          .map(
+            (l) =>
+              `<article class="panel"><div class="row"><h3>${l.boss ? "♛ " : ""}${l.name}</h3><small class="${l.id < s.lands ? "good" : "muted"}">${l.id < s.lands ? "Завоёвано" : l.id === s.lands ? "Фронтир" : "Впереди"}</small></div><p class="muted">${l.lore}</p></article>`,
+          )
+          .join("")}</div>`,
+    ).join("")}`
+  );
+}
+function render() {
+  audioManager.setScene(view, !!G.LANDS[s.lands]?.boss);
+  updateAudioUI();
+  renderResources();
+  renderChrome();
+  const f = {
+    heroes: heroesView,
+    settlement,
+    campaign,
+    army,
+    research: researchView,
+    expeditions: expeditionsView,
+    legacy: legacyView,
+    objectives,
+    journal,
+  };
+  html(
+    "view",
+    (view === "campaign" || view === "army" ? heroAbilityBar() : "") +
+      f[view]() +
+      (view === "settlement" && s.buildings[6] ? tradePanel() : ""),
+  );
+  pulse();
+}
+function pulse() {
+  const r = G.rates(s);
+  for (const k in G.RES) {
+    text(`res-${k}`, fmt(s.resources[k]));
+    text(`rate-${k}`, `${r[k] >= 0 ? "+" : ""}${fmt(r[k])} / сек`);
+    $(`rate-${k}`).className = `rate ${r[k] < 0 ? "bad" : "good"}`;
+  }
+  text("res-shards", fmt(s.meta.shards));
+  text(
+    "click-value",
+    `+${fmt(G.clickValue(s))} ◉ · +${fmt(0.25 + s.buildings[3] * 0.3)} ♧`,
+  );
+  text(
+    "combo",
+    s.combo
+      ? `СЕРИЯ ${s.combo}/20 · +${Math.round(s.combo * 2.5)}%`
+      : "Критический клик: ×3",
+  );
+  text("playtime", `Время династии: ${Math.floor(s.elapsed / 60)} мин`);
+  const l = G.LANDS[s.lands],
+    p = G.power(s),
+    d = G.defense(s);
+  text("side-power", fmt(p));
+  text(
+    "side-def",
+    `Защита ${fmt(d)} · ${p >= d ? "Сил достаточно" : "Нужны подкрепления"}`,
+  );
+  if ($("side-progress"))
+    $("side-progress").style.width = `${Math.min(100, (p / d) * 100)}%`;
+  if (view === "campaign") {
+    const target = G.LANDS[Math.min(23, selectedLand ?? s.lands)],
+      bp = G.power(s, target),
+      bd = G.defense(s, target);
+    text(
+      "battle-loss",
+      `При победе: потери ${Math.round(G.lossRate(s, true) * 100)}%. При поражении: ${Math.round(G.lossRate(s, false) * 100)}%.`,
+    );
+    text("battle-power", fmt(bp));
+    text(
+      "battle-verdict",
+      `${bp >= bd ? "Победа ожидается" : "Сил недостаточно"}${s.resources.food <= 0 && G.upkeep(s) > 0 ? " · Нехватка провизии: −30% силы" : ""}`,
+    );
+    $("battle-progress").style.width = `${Math.min(100, (bp / bd) * 100)}%`;
+  }
+  if (view === "army") {
+    text("army-total", fmt(Object.values(s.units).reduce((a, b) => a + b, 0)));
+    text("army-power", fmt(p));
+    text("army-upkeep", fmt(G.upkeep(s)));
+    document.querySelectorAll("[data-unit]").forEach((e) => {
+      e.textContent = fmt(s.units[e.dataset.unit]);
+    });
+  }
+  document
+    .querySelectorAll("[data-resource]")
+    .forEach((e) =>
+      e.classList.toggle(
+        "insufficient",
+        s.resources[e.dataset.resource] < +e.dataset.amount,
+      ),
+    );
+  document.querySelectorAll("button[data-pay]").forEach((b) => {
+    b.disabled =
+      !!b.dataset.locked ||
+      !s.race ||
+      !G.affordable(s, JSON.parse(b.dataset.pay));
+    if (
+      b.dataset.action === "attack" &&
+      Object.values(s.units).reduce((a, b) => a + b, 0) < 1
+    )
+      b.disabled = true;
+  });
+  document
+    .querySelectorAll("[data-shards]")
+    .forEach(
+      (b) =>
+        (b.disabled = !!b.dataset.locked || s.meta.shards < +b.dataset.shards),
+    );
+  document.querySelectorAll("[data-timer]").forEach((e) => {
+    const x = s.expeditions.find((x) => x.id === e.dataset.timer);
+    e.textContent = x ? `В пути · ${Math.ceil(x.remaining)} сек` : "Завершено";
+  });
+  heroPulse();
+  if (view === "objectives")
+    for (const q of G.QUESTS) {
+      const n = Math.min(q.target, G.stat(s, q.stat));
+      document.querySelector(`[data-quest-count="${q.id}"]`).textContent =
+        `${fmt(n)} / ${q.target}`;
+      document.querySelector(`[data-quest-bar="${q.id}"]`).style.width =
+        `${(n / q.target) * 100}%`;
+      document.querySelector(`[data-quest="${q.id}"]`).disabled =
+        s.quests.includes(q.id) || n < q.target;
+    }
+}
+function eventModal() {
+  if (s.event === null) return;
+  const e = G.EVENTS[s.event];
+  modal(
+    `<div class="eyebrow">ВЕСТИ КОРОЛЕВСТВА</div><h2 id="modal-title">${e.title}</h2><p>${e.text}</p><div class="event-options">${e.options
+      .map(
+        ([label, r], i) =>
+          `<button data-action="event-choice" data-id="${i}" ${payAttrs(
+            Object.fromEntries(
+              Object.entries(r)
+                .filter(([, v]) => v < 0)
+                .map(([k, v]) => [k, -v]),
+            ),
+          )}>${label}</button>`,
+      )
+      .join(
+        "",
+      )}</div><div class="dialog-actions"><button data-action="close">Решить позже</button></div>`,
+  );
+  pulse();
+}
+function prestigeModal() {
+  if (!G.reward(s)) return;
+  modal(
+    `<div class="eyebrow">КОНЕЦ ОДНОЙ ИСТОРИИ — НАЧАЛО ДРУГОЙ</div><h2 id="modal-title">Оставить корону пеплу?</h2><p>Ты получишь <strong class="gold-text">${G.reward(s)} вечных осколков</strong>. Золото, дерево, железо, эфир, провизия, здания, войска, технологии, экспедиции и задания сбросятся.</p><p>Сохранятся: осколки, вечные улучшения, достижения и все ${s.meta.relics.length} найденных реликвий. Ты выберешь новую расу. Защита врагов вырастет на 18% от базовой.</p><div class="dialog-actions"><button data-action="close">Продолжить поход</button><button class="gold" data-action="rebirth">Возродиться</button></div>`,
+  );
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-action]");
+  if (!b || b.disabled) return;
+  audioManager.unlock();
+  const a = b.dataset.action,
+    id = b.dataset.id;
+  let changed = true;
+  if (a === "gather") {
+    const result = G.gather(s);
+    if (!result) return;
+    beep(result.crit);
+    if (
+      effectiveMotion() &&
+      $("gather").querySelectorAll(".spark").length < 8
+    ) {
+      const el = document.createElement("span");
+      el.className = `spark ${result.crit ? "crit" : ""}`;
+      el.textContent = `${result.crit ? "✦ " : ""}+${fmt(result.gold)}`;
+      $("gather").append(el);
+      setTimeout(() => el.remove(), 720);
+    }
+    pulse();
+    return;
+  }
+  switch (a) {
+    case "hero-detail":
+      heroDetail = id;
+      break;
+    case "hire-hero":
+      changed = G.hireHero(s, id);
+      if (changed) {
+        heroDetail = id;
+        G.log(
+          s,
+          `${G.HEROES.find((h) => h.id === id).name} присоединяется к династии.`,
+        );
+      }
+      break;
+    case "assign-hero":
+      changed = G.assignHero(s, id);
+      break;
+    case "hero-talent": {
+      const [hid, tier, choice] = id.split(":");
+      changed = G.chooseTalent(s, hid, +tier, +choice);
+      break;
+    }
+    case "hero-respec":
+      changed = G.respecHero(s, id);
+      break;
+    case "hero-ability":
+      changed = G.heroAbility(s, id);
+      if (changed) {
+        G.tick(s, 0);
+        toast(G.HEROES.find((h) => h.id === id).ability + "!");
+      }
+      break;
+    case "view":
+      view = id;
+      filter = "Все";
+      selectedLand = null;
+      if (view === "campaign") chapter = Math.min(3, Math.floor(s.lands / 6));
+      break;
+    case "filter":
+      filter = id;
+      break;
+    case "quantity":
+      quantity = +id;
+      break;
+    case "race":
+      if (G.RACES[id]) {
+        s.race = id;
+        G.log(s, `У власти — ${G.RACES[id].name}.`);
+        $("modal").close();
+      }
+      break;
+    case "build":
+      changed = G.buy(s, +id, quantity);
 
-function heroAbilityBar(){return `<section class="hero-command panel"><div class="row"><div><div class="eyebrow">СОВЕТ ПОЛКОВОДЦЕВ</div><h3>${s.party.length?'Спутники у знамени':'Никто не возглавляет войско'}</h3></div><button data-action="view" data-id="heroes">Зал героев →</button></div>${s.party.length?`<div class="hero-abilities">${s.party.map(id=>{const h=G.HEROES.find(h=>h.id===id);return `<div class="hero-ability"><div><strong>${h.icon} ${h.name}</strong><small>${h.abilityText}</small>${costs(h.abilityCost)}</div>${button('hero-ability',id,h.ability,h.abilityCost,false,'hero-skill')}<small data-hero-cooldown="${id}"></small></div>`;}).join('')}</div>`:'<p class="muted">Найми Авелин: командир усилит армию и откроет первое активное умение.</p>'}</section>`;}
-function heroesView(){const selected=G.HEROES.find(h=>h.id===heroDetail)||G.HEROES[0],p=s.meta.heroes[selected.id];return `<div class="note">Два активных спутника определяют стиль похода. Только они дают бонусы и получают опыт. Найм, уровень и выбранные таланты сохраняются после возрождения. Максимальный уровень — 20.</div><div class="toolbar"><h2>Спутники династии</h2><span class="badge">${Object.keys(s.meta.heroes).length} / 8 · в совете ${s.party.length}/2</span></div><div class="grid heroes-grid">${G.HEROES.map(h=>{const owned=s.meta.heroes[h.id],active=s.party.includes(h.id),locked=Math.max(s.meta.best,s.lands)<h.unlock;return `<article class="card hero-card ${active?'equipped':''} ${locked?'locked':''}"><div class="hero-portrait" style="--hero-color:${['#d9b477','#9ac29b','#c1a07f','#a9bde0','#c0ba81','#bca6d1','#dfbe83','#a4c9cb'][G.HEROES.indexOf(h)]}"><span>${h.icon}</span><small>${h.title}</small></div><div class="row"><h3>${h.name}</h3><span class="level">${owned?'УРОВЕНЬ '+owned.level:locked?'НУЖНО '+h.unlock+' ЗЕМЕЛЬ':'ДОСТУПЕН НАЙМ'}</span></div><p>+${Math.round((h.base+h.perLevel*((owned?.level||1)-1))*100)}%: ${G.HERO_EFFECTS[h.effect]}.</p>${owned?`<div class="progress"><span data-hero-xp-bar="${h.id}"></span></div><small data-hero-xp="${h.id}" class="muted"></small>${button('assign-hero',h.id,active?'✓ В совете · Отозвать':'Включить в совет',{},!active&&s.party.length>=2)}`:locked?`<p class="muted">Открывается, когда любая династия завоюет ${h.unlock} земель.</p>${button('hire-hero',h.id,'Пока недоступно',h.cost,true)}`:costs(h.cost)+button('hire-hero',h.id,'Нанять навсегда',h.cost)}<button data-action="hero-detail" data-id="${h.id}" class="${selected.id===h.id?'active':''}">История и таланты</button></article>`;}).join('')}</div><section class="panel hero-detail" style="margin-top:25px"><div class="eyebrow">${selected.title.toUpperCase()}</div><h2>${selected.name} · ${p?'уровень '+p.level:'ещё не в династии'}</h2><p class="hero-lore">${selected.lore}</p><div class="note"><strong class="gold-text">${selected.ability}</strong><p>${selected.abilityText}</p><small>Перезарядка ${selected.cooldown} сек${selected.duration?' · Действует '+selected.duration+' сек':''}</small>${costs(selected.abilityCost)}</div>${p&&s.party.includes(selected.id)?button('hero-ability',selected.id,selected.ability,selected.abilityCost,false,'hero-skill'):''}<small data-hero-cooldown="${selected.id}"></small><div class="section-heading"><h2>Путь героя</h2>${p?button('hero-respec',selected.id,`Сбросить таланты · ${200*p.level} ◉`,{gold:200*p.level},!Object.keys(p.choices).length):''}</div><div class="stack">${selected.talents.map((pair,tier)=>`<div class="talent-tier"><div class="row"><strong>УРОВЕНЬ ${G.TALENT_LEVELS[tier]}</strong><small class="muted">Один из двух путей</small></div><div class="talent-choices">${pair.map((t,i)=>{const chosen=p?.choices[tier]===i,locked=!p||p.level<G.TALENT_LEVELS[tier]||p.choices[tier]!==undefined;return `<button data-action="hero-talent" data-id="${selected.id}:${tier}:${i}" class="${chosen?'chosen':''}" ${locked?'disabled':''}><strong>${chosen?'✓ ':''}${t.name}</strong><small>+${Math.round(t.value*100)}%: ${G.HERO_EFFECTS[t.effect]}</small></button>`;}).join('')}</div></div>`).join('')}</div><p class="muted">Опыт: победы, задания и завершённые экспедиции. Неактивные герои не получают опыт. Пример: после нескольких походов твой полководец может стать специалистом по пехоте или командиром, берегущим армию.</p></section>`;}
-function heroPulse(){document.querySelectorAll('[data-hero-xp]').forEach(e=>{const p=s.meta.heroes[e.dataset.heroXp];e.textContent=p.level===20?'Легендарный уровень':`${fmt(p.xp)} / ${fmt(G.heroLevelXP(p.level))} опыта`;});document.querySelectorAll('[data-hero-xp-bar]').forEach(e=>{const p=s.meta.heroes[e.dataset.heroXpBar];e.style.width=`${p.level===20?100:p.xp/G.heroLevelXP(p.level)*100}%`;});document.querySelectorAll('[data-hero-cooldown]').forEach(e=>{const id=e.dataset.heroCooldown,n=s.heroCooldowns[id]||0,buff=s.heroBuffs.find(b=>b.id===id);e.textContent=buff?`Умение действует ещё ${Math.ceil(buff.remaining)} сек`:n>0?`Перезарядка: ${Math.ceil(n)} сек`:s.party.includes(id)?'Умение готово':'Герой должен быть в совете';});document.querySelectorAll('button[data-action="hero-ability"]').forEach(b=>{const h=G.HEROES.find(h=>h.id===b.dataset.id);b.disabled=!s.race||!s.party.includes(h.id)||(s.heroCooldowns[h.id]||0)>0||!G.affordable(s,h.abilityCost);});}
+      break;
+    case "recruit":
+      changed = G.recruit(s, id, quantity);
+      break;
+    case "research":
+      changed = G.research(s, id);
+      if (changed) toast("Новое знание меняет королевство.");
+      break;
+    case "policy":
+      s.policy = +id;
+      break;
+    case "chapter":
+      chapter = +id;
+      selectedLand = chapter * 6;
+      break;
+    case "land":
+      selectedLand = +id;
+      break;
+    case "attack": {
+      if (+id !== s.lands || battlePresentation.busy) return;
+      battlePresentation.start({ target: +id }, effectiveMotion());
+      return;
+    }
+    case "expedition":
+      changed = G.startExpedition(s, id);
+      if (changed) toast("Отряд отправился в путь.");
+      break;
+    case "quest":
+      changed = G.claimQuest(s, +id);
+      if (changed) toast("Награда получена.");
+      break;
+    case "upgrade":
+      changed = G.upgrade(s, +id);
+      if (changed) toast("Наследие усилено навсегда.");
+      break;
+    case "equip":
+      changed = G.equip(s, id);
+      break;
+    case "prestige":
+      prestigeModal();
+      return;
+    case "rebirth": {
+      const next = G.rebirth(s);
+      if (!next) return;
+      s = next;
+      view = "settlement";
+      chapter = 0;
+      selectedLand = null;
+      $("modal").close();
+      chooseRace();
+      break;
+    }
+    case "event":
+      eventModal();
+      return;
+    case "event-choice":
+      changed = G.chooseEvent(s, +id);
+      if (changed) $("modal").close();
+      break;
+    case "help":
+      openHelp();
+      return;
+    case "settings":
+      openSettings();
+      return;
+    case "music-toggle":
+      musicActivated = !musicActivated;
+      audioManager.enableMusic(musicActivated);
+      persistSettings();
+      updateAudioUI();
+      if ($("music-volume")) openSettings();
+      return;
+    case "credits":
+      openCredits();
+      return;
+    case "battle-skip":
+      battlePresentation.skip();
+      return;
+    case "battle-close":
+      $("battle-modal").close();
+      return;
+    case "sound":
+      sound = !audioManager.getSettings().effectsEnabled;
+      audioManager.setEffects(sound);
+      persistSettings();
+      beep();
+      openSettings();
+      return;
+    case "motion":
+      motion = !motion;
+      persistSettings();
+      document.body.classList.toggle("reduce-motion", !motion);
+      openSettings();
+      return;
+    case "close":
+      if (s.race) $("modal").close();
+      return;
+    case "export":
+      exportSave();
+      return;
+    case "trade":
+      changed = G.trade(s, $("trade-from").value, $("trade-to").value);
+      if (changed) toast("Обмен завершён.");
+      break;
+    default:
+      return;
+  }
+  if (!changed) {
+    toast("Недостаточно ресурсов или действие пока недоступно.");
+    return;
+  }
+  const soundForAction = {
+    build: "build",
+    recruit: "recruit",
+    research: "research",
+    policy: "policy",
+    chapter: "policy",
+    view: "click",
+    land: "click",
+    quest: "quest",
+    upgrade: "relic",
+    equip: "relic",
+    expedition: "expedition",
+    "hire-hero": "hero",
+    "assign-hero": "hero",
+    "hero-talent": "talent",
+    "hero-respec": "talent",
+    "hero-ability": "magic",
+    rebirth: "prestige",
+    "event-choice": "quest",
+    race: "hero",
+  };
+  if (soundForAction[a]) audioManager.playSfx(soundForAction[a]);
+  G.achievements(s);
+  save();
+  render();
+  if (a === "view") window.scrollTo({ top: 0, behavior: "instant" });
+});
+document.addEventListener("change", async (e) => {
+  if (e.target.id === "tactic" || e.target.id === "formation") {
+    s[e.target.id] = +e.target.value;
+    save();
+    pulse();
+    return;
+  }
+  if (e.target.id !== "import-save") return;
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 100000) throw Error();
+    let candidate = JSON.parse(await file.text());
+    if (candidate.v === 1) candidate = G.migrate(candidate);
+    else candidate = G.hydrateHeroes(candidate);
+    if (!G.valid(candidate)) throw Error();
+    modal(
+      '<h2 id="modal-title">Восстановить династию?</h2><p>Текущий прогресс будет заменён данными из файла. Скачай резервную копию текущей игры, если хочешь сохранить оба варианта.</p><div class="dialog-actions"><button data-action="close">Отмена</button><button id="confirm-import" class="gold">Восстановить</button></div>',
+    );
+    $("confirm-import").onclick = () => {
+      s = candidate;
+      s.last = Date.now();
+      view = "settlement";
+      selectedLand = null;
+      chapter = Math.min(3, Math.floor(s.lands / 6));
+      save();
+      $("modal").close();
+      render();
+      if (!s.race) chooseRace();
+      toast("Сохранение восстановлено.");
+    };
+  } catch {
+    toast("Повреждённый или неподдерживаемый файл сохранения.");
+  }
+});
+function persistSettings() {
+  try {
+    localStorage.setItem(
+      "ash-crowns-settings",
+      JSON.stringify({
+        ...audioManager.getSettings(),
+        sound: audioManager.getSettings().effectsEnabled,
+        motion,
+      }),
+    );
+  } catch {}
+}
+function exportSave() {
+  save();
+  const url = URL.createObjectURL(
+      new Blob([JSON.stringify(s)], { type: "application/json" }),
+    ),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = "ash-crowns-v2-save.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$("modal").addEventListener("cancel", (e) => {
+  if (!s.race) e.preventDefault();
+});
+let previous = performance.now();
+const signature = () =>
+  JSON.stringify([
+    s.event,
+    s.expeditions.map((x) => x.id),
+    s.meta.achievements,
+    s.logs,
+    s.quests,
+    s.party,
+    Object.entries(s.meta.heroes).map(([id, p]) => [id, p.level, p.choices]),
+  ]);
+function step() {
+  const now = performance.now(),
+    dt = (now - previous) / 1000;
+  previous = now;
+  const before = signature();
+  const oldAchievements = s.meta.achievements.length,
+    oldExpeditions = s.expeditionCount;
+  G.tick(s, dt);
+  if (s.meta.achievements.length > oldAchievements)
+    audioManager.playSfx("achievement");
+  if (s.expeditionCount > oldExpeditions) audioManager.playSfx("expedition");
+  if (before !== signature()) render();
+  else pulse();
+}
+setInterval(() => {
+  if (!document.hidden) step();
+}, 250);
+setInterval(() => {
+  if (!document.hidden) save();
+}, 10000);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    save();
+    hiddenAt = Date.now();
+  } else {
+    if (hiddenAt !== null)
+      G.tick(s, Math.max(0, (Date.now() - hiddenAt) / 1000));
+    hiddenAt = null;
+    previous = performance.now();
+    render();
+  }
+});
+window.addEventListener("pagehide", save);
+const battlePresentation = createBattlePresentation({
+  resolve: resolvePresentedBattle,
+  show: showBattleScene,
+  finish: finishBattleScene,
+});
+let battleEffectTimers = [];
+$("gather").querySelector(".rune").innerHTML = art(
+  "relic-ember",
+  "Разжечь вечное пламя",
+  "gather-art",
+  true,
+);
+$("battle-modal").addEventListener("cancel", (event) => {
+  if (battlePresentation.busy) {
+    event.preventDefault();
+    battlePresentation.skip();
+  }
+});
+render();
+if (!s.race) chooseRace();
+if (saveError)
+  toast("Не удалось прочитать сохранение. Исходные данные не удалены.");
+
+function tradePanel() {
+  return (
+    '<section class="panel" style="margin-top:22px"><div class="eyebrow">КАРАВАННЫЙ ОБМЕН</div><h2>Рынок ресурсов</h2><p class="muted">Отдай 100 единиц одного ресурса и получи ' +
+    (s.race === "human" ? 90 : 70) +
+    ' другого. Выручит, когда для следующего шага не хватает одного материала.</p><div class="trade-controls"><label>Отдать<select id="trade-from" aria-label="Ресурс для продажи">' +
+    Object.entries(G.RES)
+      .map(
+        ([id, [i, n]]) =>
+          '<option value="' + id + '">' + i + " " + n + "</option>",
+      )
+      .join("") +
+    '</select></label><label>Получить<select id="trade-to" aria-label="Ресурс для покупки">' +
+    Object.entries(G.RES)
+      .map(
+        ([id, [i, n]]) =>
+          '<option value="' +
+          id +
+          '" ' +
+          (id === "iron" ? "selected" : "") +
+          ">" +
+          i +
+          " " +
+          n +
+          "</option>",
+      )
+      .join("") +
+    '</select></label><button data-action="trade">Обменять 100</button></div></section>'
+  );
+}
+
+function heroAbilityBar() {
+  return `<section class="hero-command panel"><div class="row"><div><div class="eyebrow">СОВЕТ ПОЛКОВОДЦЕВ</div><h3>${s.party.length ? "Спутники у знамени" : "Никто не возглавляет войско"}</h3></div><button data-action="view" data-id="heroes">Зал героев →</button></div>${
+    s.party.length
+      ? `<div class="hero-abilities">${s.party
+          .map((id) => {
+            const h = G.HEROES.find((h) => h.id === id);
+            return `<div class="hero-ability"><div><strong>${h.icon} ${h.name}</strong><small>${h.abilityText}</small>${costs(h.abilityCost)}</div>${button("hero-ability", id, h.ability, h.abilityCost, false, "hero-skill")}<small data-hero-cooldown="${id}"></small></div>`;
+          })
+          .join("")}</div>`
+      : '<p class="muted">Найми Авелин: командир усилит армию и откроет первое активное умение.</p>'
+  }</section>`;
+}
+function heroesView() {
+  const selected = G.HEROES.find((h) => h.id === heroDetail) || G.HEROES[0],
+    p = s.meta.heroes[selected.id];
+  return `<div class="note">Два активных спутника определяют стиль похода. Только они дают бонусы и получают опыт. Найм, уровень и выбранные таланты сохраняются после возрождения. Максимальный уровень — 20.</div><div class="toolbar"><h2>Спутники династии</h2><span class="badge">${Object.keys(s.meta.heroes).length} / 8 · в совете ${s.party.length}/2</span></div><div class="grid heroes-grid">${G.HEROES.map(
+    (h) => {
+      const owned = s.meta.heroes[h.id],
+        active = s.party.includes(h.id),
+        locked = Math.max(s.meta.best, s.lands) < h.unlock;
+      return `<article class="card hero-card ${active ? "equipped" : ""} ${locked ? "locked" : ""}"><div class="hero-portrait" style="--hero-color:${["#d9b477", "#9ac29b", "#c1a07f", "#a9bde0", "#c0ba81", "#bca6d1", "#dfbe83", "#a4c9cb"][G.HEROES.indexOf(h)]}">${art("hero-" + h.id, h.name, "portrait-art")}<small>${h.title}</small></div><div class="row"><h3>${h.name}</h3><span class="level">${owned ? "УРОВЕНЬ " + owned.level : locked ? "НУЖНО " + h.unlock + " ЗЕМЕЛЬ" : "ДОСТУПЕН НАЙМ"}</span></div><p>+${Math.round((h.base + h.perLevel * ((owned?.level || 1) - 1)) * 100)}%: ${G.HERO_EFFECTS[h.effect]}.</p>${owned ? `<div class="progress"><span data-hero-xp-bar="${h.id}"></span></div><small data-hero-xp="${h.id}" class="muted"></small>${button("assign-hero", h.id, active ? "✓ В совете · Отозвать" : "Включить в совет", {}, !active && s.party.length >= 2)}` : locked ? `<p class="muted">Открывается, когда любая династия завоюет ${h.unlock} земель.</p>${button("hire-hero", h.id, "Пока недоступно", h.cost, true)}` : costs(h.cost) + button("hire-hero", h.id, "Нанять навсегда", h.cost)}<button data-action="hero-detail" data-id="${h.id}" class="${selected.id === h.id ? "active" : ""}">История и таланты</button></article>`;
+    },
+  ).join(
+    "",
+  )}</div><section class="panel hero-detail" style="margin-top:25px"><div class="eyebrow">${selected.title.toUpperCase()}</div><div class="hero-story">${art("hero-" + selected.id, selected.name, "story-portrait")}<div><h2>${selected.name} · ${p ? "уровень " + p.level : "ещё не в династии"}</h2><p class="hero-lore">${selected.lore}</p></div></div><div class="note"><strong class="gold-text">${selected.ability}</strong><p>${selected.abilityText}</p><small>Перезарядка ${selected.cooldown} сек${selected.duration ? " · Действует " + selected.duration + " сек" : ""}</small>${costs(selected.abilityCost)}</div>${p && s.party.includes(selected.id) ? button("hero-ability", selected.id, selected.ability, selected.abilityCost, false, "hero-skill") : ""}<small data-hero-cooldown="${selected.id}"></small><div class="section-heading"><h2>Путь героя</h2>${p ? button("hero-respec", selected.id, `Сбросить таланты · ${200 * p.level} ◉`, { gold: 200 * p.level }, !Object.keys(p.choices).length) : ""}</div><div class="stack">${selected.talents
+    .map(
+      (pair, tier) =>
+        `<div class="talent-tier"><div class="row"><strong>УРОВЕНЬ ${G.TALENT_LEVELS[tier]}</strong><small class="muted">Один из двух путей</small></div><div class="talent-choices">${pair
+          .map((t, i) => {
+            const chosen = p?.choices[tier] === i,
+              locked =
+                !p ||
+                p.level < G.TALENT_LEVELS[tier] ||
+                p.choices[tier] !== undefined;
+            return `<button data-action="hero-talent" data-id="${selected.id}:${tier}:${i}" class="${chosen ? "chosen" : ""}" ${locked ? "disabled" : ""}><strong>${chosen ? "✓ " : ""}${t.name}</strong><small>+${Math.round(t.value * 100)}%: ${G.HERO_EFFECTS[t.effect]}</small></button>`;
+          })
+          .join("")}</div></div>`,
+    )
+    .join(
+      "",
+    )}</div><p class="muted">Опыт: победы, задания и завершённые экспедиции. Неактивные герои не получают опыт. Пример: после нескольких походов твой полководец может стать специалистом по пехоте или командиром, берегущим армию.</p></section>`;
+}
+function heroPulse() {
+  document.querySelectorAll("[data-hero-xp]").forEach((e) => {
+    const p = s.meta.heroes[e.dataset.heroXp];
+    e.textContent =
+      p.level === 20
+        ? "Легендарный уровень"
+        : `${fmt(p.xp)} / ${fmt(G.heroLevelXP(p.level))} опыта`;
+  });
+  document.querySelectorAll("[data-hero-xp-bar]").forEach((e) => {
+    const p = s.meta.heroes[e.dataset.heroXpBar];
+    e.style.width = `${p.level === 20 ? 100 : (p.xp / G.heroLevelXP(p.level)) * 100}%`;
+  });
+  document.querySelectorAll("[data-hero-cooldown]").forEach((e) => {
+    const id = e.dataset.heroCooldown,
+      n = s.heroCooldowns[id] || 0,
+      buff = s.heroBuffs.find((b) => b.id === id);
+    e.textContent = buff
+      ? `Умение действует ещё ${Math.ceil(buff.remaining)} сек`
+      : n > 0
+        ? `Перезарядка: ${Math.ceil(n)} сек`
+        : s.party.includes(id)
+          ? "Умение готово"
+          : "Герой должен быть в совете";
+  });
+  document
+    .querySelectorAll('button[data-action="hero-ability"]')
+    .forEach((b) => {
+      const h = G.HEROES.find((h) => h.id === b.dataset.id);
+      b.disabled =
+        !s.race ||
+        !s.party.includes(h.id) ||
+        (s.heroCooldowns[h.id] || 0) > 0 ||
+        !G.affordable(s, h.abilityCost);
+    });
+}
+
+function updateAudioUI() {
+  const button = $("music-button");
+  if (button) {
+    button.textContent = musicActivated ? "♫ Музыка" : "▷ Музыка";
+    button.classList.toggle("active", musicActivated);
+    button.setAttribute("aria-pressed", String(musicActivated));
+  }
+}
+document.addEventListener("input", (event) => {
+  if (!["music-volume", "effects-volume"].includes(event.target.id)) return;
+  const value = Number(event.target.value) / 100;
+  audioManager.setVolumes(
+    event.target.id === "music-volume" ? { music: value } : { effects: value },
+  );
+  text(event.target.id + "-value", Math.round(value * 100) + "%");
+  persistSettings();
+});
+function settlementScene() {
+  const stage = settlementStage(s.buildings),
+    ch = Math.min(3, Math.floor(s.lands / 6));
+  return (
+    '<section class="settlement-scene stage-' +
+    stage.id +
+    '">' +
+    media.image("region-" + ch, G.BIOMES[ch].name, {
+      className: "settlement-landscape",
+      width: 1200,
+      height: 500,
+      eager: true,
+      fallback: "assets/chapter-" + ch + ".svg",
+    }) +
+    '<div class="settlement-sky"></div><div class="settlement-diorama">' +
+    settlementBuildings(s.buildings, G.BUILDINGS, stage.id)
+      .map(
+        (id, i) =>
+          '<div class="settlement-building city-slot-' +
+          i +
+          '">' +
+          art(
+            "building-" + id,
+            G.BUILDINGS.find((b) => b.id === id)?.name || id,
+            "city-building",
+            true,
+          ) +
+          "</div>",
+      )
+      .join("") +
+    '</div><div class="settlement-copy"><div class="eyebrow">ТВОЯ ДИНАСТИЯ · ' +
+    s.buildings.reduce((a, b) => a + b, 0) +
+    " ПОСТРОЕК</div><h2>" +
+    stage.name +
+    "</h2><p>" +
+    stage.subtitle +
+    '</p></div><span class="scene-stage">' +
+    ["I · ОСНОВАНИЕ", "II · УКРЕПЛЕНИЕ", "III · РАСЦВЕТ"][stage.id] +
+    "</span></section>"
+  );
+}
+function openCredits() {
+  const rows = media.credits();
+  const safeLink = (url) => (/^https:\/\//.test(url || "") ? esc(url) : "#");
+  modal(
+    '<div class="eyebrow">ИСКУССТВО ВОЗВРАЩЕНИЯ СОЛНЦА</div><h2 id="modal-title">Авторы и лицензии</h2><p>Спасибо художникам и композиторам, открывшим свои работы для независимых игр. Иллюстрации подготовлены под единый интерфейс; обработка и источники записаны в манифесте.</p><div class="credits-list">' +
+      rows
+        .map(
+          (r) =>
+            "<article><strong>" +
+            esc(r.author || "Автор указан в источнике") +
+            '</strong><span class="license-badge">' +
+            esc(r.license || "См. источник") +
+            '</span><a href="' +
+            safeLink(r.sourceUrl) +
+            '" target="_blank" rel="noopener noreferrer">Источник материала ↗</a></article>',
+        )
+        .join("") +
+      '</div><p>Код игры — MIT. Сторонние материалы сохраняют собственные лицензии, включая CC0, CC-BY 3.0 и CC-BY-SA 3.0. Обработанные материалы CC-BY-SA распространяются с той же лицензией. Полные тексты и сведения об изменениях включены в репозиторий.</p><div class="credits-links"><a href="assets/manifest.json" target="_blank" rel="noopener">Манифест материалов</a><a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Полный список авторов</a></div><div class="dialog-actions"><button data-action="settings">Настройки</button><button class="gold" data-action="close">Вернуться к игре</button></div>',
+  );
+}
+function resolvePresentedBattle({ target }) {
+  if (target !== s.lands) return null;
+  const land = G.LANDS[target];
+  if (!land) return null;
+  const beforeUnits = { ...s.units },
+    beforeResources = { ...s.resources },
+    beforeRelics = [...s.meta.relics];
+  const win = G.fight(s);
+  if (win === null) return null;
+  const lost = Object.fromEntries(
+    Object.keys(s.units).map((id) => [id, beforeUnits[id] - s.units[id]]),
+  );
+  const loot = Object.fromEntries(
+    Object.keys(s.resources).map((id) => [
+      id,
+      Math.max(0, s.resources[id] - beforeResources[id]),
+    ]),
+  );
+  const report = {
+    land,
+    win,
+    beforeUnits,
+    lost,
+    loot,
+    relic: s.meta.relics.find((id) => !beforeRelics.includes(id)),
+    defense: G.defense(s, land),
+  };
+  G.achievements(s);
+  save();
+  selectedLand = null;
+  chapter = Math.min(3, Math.floor(s.lands / 6));
+  render();
+  return report;
+}
+function showBattleScene(report, animate) {
+  const enemyId =
+    report.land.type === "spirit"
+      ? "mage"
+      : report.land.boss
+        ? "siege"
+        : "militia";
+  const units = G.UNITS.filter((u) => report.beforeUnits[u.id] >= 0.1);
+  const dialog = $("battle-modal");
+  dialog.className =
+    "battle-dialog " + (animate ? "is-running" : "is-finished");
+  $("battle-content").innerHTML =
+    '<div class="battle-cinematic">' +
+    media.image("region-" + report.land.chapter, report.land.name, {
+      className: "battle-backdrop",
+      width: 1200,
+      height: 500,
+      eager: true,
+    }) +
+    '<div class="cinematic-shade"></div><div class="battle-scene-heading"><div class="eyebrow">' +
+    (report.land.boss ? "ХРАНИТЕЛЬ ГЛАВЫ" : "КОРОЛЕВСКИЙ ПОХОД") +
+    '</div><h2 id="battle-title">' +
+    report.land.name +
+    '</h2><p>Знамёна встретились на границе рассвета.</p></div><div class="battle-armies"><div class="battle-force allies">' +
+    units
+      .map(
+        (u, i) =>
+          '<div class="combatant" style="--order:' +
+          i +
+          '">' +
+          art("unit-" + u.id, u.name, "combatant-art", true) +
+          "<strong>" +
+          fmt(report.beforeUnits[u.id]) +
+          "</strong><small>" +
+          u.name +
+          "</small></div>",
+      )
+      .join("") +
+    '</div><div class="battle-clash"><span class="clash-ring"></span><span class="clash-flash"></span><span class="magic-spark s1"></span><span class="magic-spark s2"></span><span class="magic-spark s3"></span></div><div class="battle-force enemies"><div class="combatant enemy-banner">' +
+    art(
+      "unit-" + enemyId,
+      "Защитники " + report.land.name,
+      "combatant-art",
+      true,
+    ) +
+    "<strong>" +
+    fmt(report.defense) +
+    "</strong><small>" +
+    (report.land.boss ? "Страж короны" : "Защитники рубежа") +
+    '</small></div></div></div><div class="battle-running"><span>Столкновение армий…</span><button data-action="battle-skip">Пропустить сцену</button></div></div><section class="battle-result"><div class="eyebrow">СРАЖЕНИЕ ЗАВЕРШЕНО</div><h2 class="' +
+    (report.win ? "good" : "bad") +
+    '">' +
+    (report.win
+      ? "Победа. Земля под твоей короной."
+      : "Отступление. Знамя ещё не пало.") +
+    "</h2><p>" +
+    (report.win
+      ? report.land.bonus
+      : "Накопи войско, проверь снабжение и выбери контртактику.") +
+    '</p><div class="battle-result-columns"><div><h3>Потери армии</h3>' +
+    G.UNITS.filter((u) => report.lost[u.id] > 0.01)
+      .map(
+        (u) =>
+          "<p>" +
+          esc(u.name) +
+          ': <span class="bad">−' +
+          fmt(report.lost[u.id]) +
+          "</span></p>",
+      )
+      .join("") +
+    "</div><div><h3>" +
+    (report.win ? "Добыча похода" : "Следующий шаг") +
+    "</h3>" +
+    (report.win
+      ? costs(
+          Object.fromEntries(
+            Object.entries(report.loot).filter(([, v]) => v > 0),
+          ),
+        )
+      : "<p>Поражение не сбрасывает постройки и исследования.</p>") +
+    (report.relic
+      ? '<p class="gold-text">Найдена реликвия: ' +
+        esc(G.RELICS.find((r) => r.id === report.relic).name) +
+        "</p>"
+      : "") +
+    '</div></div><button class="gold wide" data-action="battle-close">Продолжить поход →</button></section>';
+  if (!dialog.open) dialog.showModal();
+  if (animate) {
+    audioManager.playSfx("attack");
+    battleEffectTimers = [
+      setTimeout(() => audioManager.playSfx("hit"), 1100),
+      setTimeout(() => audioManager.playSfx("magic"), 2200),
+    ];
+  }
+}
+function finishBattleScene(report) {
+  for (const timer of battleEffectTimers) clearTimeout(timer);
+  battleEffectTimers = [];
+  const dialog = $("battle-modal");
+  dialog.classList.remove("is-running");
+  dialog.classList.add("is-finished");
+  audioManager.playSfx(report.win ? "victory" : "defeat");
+  if (report.relic) setTimeout(() => audioManager.playSfx("relic"), 300);
+}
